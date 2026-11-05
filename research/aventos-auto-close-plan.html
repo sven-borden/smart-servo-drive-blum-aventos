@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Aventos Auto-Close Plan</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,600&display=swap">
+<style>
+/* Layout: one reading column (72ch) with full-width tables; status chips carry the evidence grade; part numbers and radio values set in mono. */
+:root {
+  --bg: #f4f6f8; --surface: #ffffff; --fg: #1b2127; --muted: #5a6670; --line: #d7dde3;
+  --accent: #0e7c7b; --accent-soft: #dff1f0; --accent-ink: #ffffff;
+  --ok: #1e7a3a; --ok-bg: #e2f3e7; --warn: #8a5a00; --warn-bg: #fbefd3; --bad: #a53030; --bad-bg: #fae3e3; --info: #345d8a; --info-bg: #e3edf7;
+  --code-bg: #eaeef2;
+  --display: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121618; --surface: #1a2024; --fg: #e6e9ec; --muted: #9ba5ad; --line: #2c343a;
+    --accent: #4fb8b3; --accent-soft: #163635; --accent-ink: #0d1f1e;
+    --ok: #74cf90; --ok-bg: #173a24; --warn: #e9b95b; --warn-bg: #3b2d0e; --bad: #f09090; --bad-bg: #44211f; --info: #8fb6e0; --info-bg: #1d2e40;
+    --code-bg: #232a30; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121618; --surface: #1a2024; --fg: #e6e9ec; --muted: #9ba5ad; --line: #2c343a;
+  --accent: #4fb8b3; --accent-soft: #163635; --accent-ink: #0d1f1e;
+  --ok: #74cf90; --ok-bg: #173a24; --warn: #e9b95b; --warn-bg: #3b2d0e; --bad: #f09090; --bad-bg: #44211f; --info: #8fb6e0; --info-bg: #1d2e40;
+  --code-bg: #232a30; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.55; margin: 0;
+  padding-block: 0 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 76ch; margin: 0 auto; }
+header.top { padding: 40px 0 24px; border-bottom: 1px solid var(--line); }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--display); font-weight: 600; font-size: clamp(30px, 5vw, 42px); line-height: 1.1; margin: 10px 0 14px; text-wrap: balance; }
+h2 { font-family: var(--display); font-weight: 600; font-size: 26px; line-height: 1.2; margin: 48px 0 14px; text-wrap: balance; padding-top: 8px; border-top: 1px solid var(--line); }
+h3 { font-size: 17px; font-weight: 600; margin: 24px 0 8px; }
+p { margin: 0 0 12px; }
+.lede { font-size: 18px; color: var(--fg); max-width: 66ch; }
+a { color: var(--accent); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code, .mono { font-family: var(--mono); font-size: 0.92em; }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+nav.toc { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 18px 0 0; font-size: 14px; }
+nav.toc a { color: var(--muted); text-decoration: none; }
+nav.toc a:hover { color: var(--accent); }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; color: var(--muted); margin-top: 14px; }
+.callout { background: var(--accent-soft); border-left: 4px solid var(--accent); padding: 14px 16px; border-radius: 0 8px 8px 0; margin: 16px 0; }
+.callout p:last-child { margin: 0; }
+.stages { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin: 18px 0; }
+.stage { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-width: 0; }
+.stage .k { font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+.stage .t { font-weight: 600; margin: 4px 0 6px; }
+.stage .d { font-size: 14px; color: var(--muted); }
+.chip { display: inline-block; font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; vertical-align: middle; white-space: nowrap; }
+.chip.ok { background: var(--ok-bg); color: var(--ok); }
+.chip.warn { background: var(--warn-bg); color: var(--warn); }
+.chip.bad { background: var(--bad-bg); color: var(--bad); }
+.chip.info { background: var(--info-bg); color: var(--info); }
+ul.facts { list-style: none; padding: 0; margin: 0; }
+ul.facts li { display: grid; grid-template-columns: 112px 1fr; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+ul.facts li > .chip { align-self: start; margin-top: 3px; justify-self: start; }
+ul.facts .src { display: block; font-size: 13.5px; color: var(--muted); margin-top: 4px; }
+@media (max-width: 520px) { ul.facts li { grid-template-columns: 1fr; gap: 6px; } }
+.tablewrap { overflow-x: auto; margin: 14px 0 20px; }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+th, td { text-align: left; vertical-align: top; padding: 9px 10px; border-bottom: 1px solid var(--line); }
+th { font-weight: 600; font-size: 13px; letter-spacing: 0.03em; text-transform: uppercase; color: var(--muted); }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr.rec td { background: var(--accent-soft); }
+pre.mermaid { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow-x: auto; margin: 14px 0; }
+figure { margin: 0 0 14px; }
+figcaption { font-size: 13.5px; color: var(--muted); margin-top: 6px; }
+ol.gates { padding-left: 0; list-style: none; counter-reset: g; margin: 0; }
+ol.gates > li { position: relative; padding: 14px 0 14px 54px; border-bottom: 1px solid var(--line); counter-increment: g; }
+ol.gates > li::before { content: counter(g); position: absolute; left: 0; top: 14px; width: 38px; height: 38px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-family: var(--mono); font-weight: 500; display: grid; place-items: center; }
+ol.gates .gate { margin-top: 8px; font-size: 14.5px; background: var(--surface); border: 1px dashed var(--line); border-radius: 6px; padding: 8px 10px; }
+ol.gates .gate b { color: var(--accent); }
+.decision { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin: 12px 0; }
+.decision .q { font-weight: 600; margin-bottom: 6px; }
+.decision .id { font-family: var(--mono); color: var(--accent); margin-right: 8px; }
+.decision ul { margin: 6px 0 8px 18px; padding: 0; }
+.decision .rec { font-size: 14.5px; }
+.decision .rec b { color: var(--accent); }
+ul.checks { list-style: none; padding: 0; margin: 0; }
+ul.checks li { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--line); }
+ul.checks input { margin-top: 5px; flex: none; accent-color: var(--accent); }
+ul.plain { padding-left: 20px; margin: 6px 0 12px; }
+ul.plain li { margin: 4px 0; }
+.sources { font-size: 14px; }
+.sources li { margin: 5px 0; overflow-wrap: anywhere; }
+footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); }
+@media (prefers-reduced-motion: no-preference) { a { transition: color .15s; } }
+</style>
+<script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
+mermaid.initialize({ startOnLoad: true, theme: window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default" });
+</script>
+</head>
+<body>
+<!-- Standalone copy of the published artifact https://claude.ai/artifact/RrvkGMAwSHqTvnYmhZUmpy (draft 1.1, 2026-11-05). Diagrams render via mermaid from jsDelivr when opened with internet access. -->
+
+
+<div class="wrap">
+<header class="top">
+  <div class="eyebrow">Smart SERVO-DRIVE · plan for validation · draft 1.1 · 2026-11-05</div>
+  <h1>Aventos Auto-Close Plan</h1>
+  <p class="lede">An ESP32 box that notices when the Blum AVENTOS flap has been opened and sends the SERVO-DRIVE a close command five minutes later. This page summarises what the research established, recommends an architecture, stages the work with go/no-go gates, and lists the decisions and home checks needed before anything is bought or built.</p>
+  <div class="meta">
+    <span>Research: 8 angles, 14 key claims, 10 independently verified so far</span>
+    <span>Research outcome in the repository under <code>research/</code> (README, verification, raw findings, full report)</span>
+  </div>
+  <nav class="toc" aria-label="Contents">
+    <a href="#rec">Recommendation</a>
+    <a href="#facts">What we know</a>
+    <a href="#arch">How it works</a>
+    <a href="#options">Options</a>
+    <a href="#stages">Stages and gates</a>
+    <a href="#bom">Bill of materials</a>
+    <a href="#safety">Safety</a>
+    <a href="#decisions">Decisions</a>
+    <a href="#checks">Home checks</a>
+    <a href="#risks">Risks</a>
+    <a href="#sources">Sources</a>
+  </nav>
+</header>
+
+<div class="callout" id="yours">
+  <p><strong>Your system: AVENTOS HF top.</strong> That is the top-generation drive unit <code>23.A000</code> (set) / <code>23.A001</code> (unit), FCC ID <code>W95-23A001</code>, sold in the EU since 2023, with the buttons <em>Link · Ok · Play · Collision · Reset</em>. Switches are linked by pressing Link, then each switch, then Ok. Two drives are synchronised with Link on both, Ok, then Play for a reference run. This is precisely the generation the open-source library has <em>not</em> been tested on, so gate G1 carries real risk and the spare-switch fallback should be ordered together with the spike parts (decision D10).</p>
+  <p><strong>Is it Bluetooth?</strong> No evidence for it on the switch-to-drive link. The "simple bluetooth connection" wording comes from one US retailer's product bullet, not from Blum. Blum's own documents give the 23.A00x drive the same radio data as the switch (2.404–2.452 GHz, +4 dBm, "bidirectional, coded telegrams"), declare it under EN 300 440 rather than EN 300 328, the standard Bluetooth devices are tested to, and that band does not cover the full Bluetooth band of 2402–2480 MHz that a Bluetooth radio must use. The FCC filing for the drive is a Part 15.249 low-power transmitter at 2404–2452 MHz, and the switch shared by all drives is filed as "2.4 GHz proprietary, GFSK". A Bluetooth interface for a future app could still sit inside the newest drives undocumented; the XIAO ESP32-C6's own Bluetooth can scan for advertisements in Stage 1 at zero cost, which settles it either way.</p>
+</div>
+
+<h2 id="rec">Recommendation</h2>
+<p>Build a <strong>hybrid, staged device</strong>: a Seeed XIAO ESP32-C6 with a genuine Nordic nRF24L01+ module that joins the drive as a virtual synchronised drive over Blum's own 2.4 GHz link, plus a reed sensor on the flap as ground truth and safety interlock. The radio path sends an <em>absolute</em> close command (idempotent, no toggle risk) and receives the drive's move events. The reed sensor starts the timer for every kind of opening, including a press on the front, which produces no radio frame from the switch at all. If the radio path fails its gate on your drive generation, the same box drives a spare Blum switch through an isolated PhotoMOS contact instead, which is the proven fallback.</p>
+<div class="callout">
+  <p><strong>Why not "catch the switch's OPEN frame" alone?</strong> The Blum switch sends only a trigger; the drive decides open or close from its own position. And the normal way to open an AVENTOS flap is a push on the front, which never involves the switch. A device that only listens to the switch would miss most openings and could not tell open from close. The sensor plus the drive's own move events fix both problems.</p>
+</div>
+<div class="stages">
+  <div class="stage"><div class="k">Stage 0 · this week · €0</div><div class="t">Identify and observe</div><div class="d">Photos of labels and buttons, four quick tests on the flap, pick the reed position, answer the decisions below.</div></div>
+  <div class="stage"><div class="k">Stage 1 · 1–2 evenings · ~€20</div><div class="t">Radio feasibility spike</div><div class="d">Breadboard XIAO + nRF24L01+, pair as sync partner, log frames, send one close. Go/no-go gate G1.</div></div>
+  <div class="stage"><div class="k">Stage 2 · 2–3 weekends · ~€15</div><div class="t">Device build and soak</div><div class="d">Firmware state machine, reed, buzzer, cancel button, optional MQTT; one-week logged soak. Gate G2.</div></div>
+  <div class="stage"><div class="k">Stage 3 · 1 weekend · ~€5</div><div class="t">OpenSCAD enclosure</div><div class="d">YAPP_Box parametric case, light pipe, button, USB-C cutout, reed strain relief, cabinet mount.</div></div>
+</div>
+
+<h2 id="facts">What the research established</h2>
+<p>Status chips: <span class="chip ok">confirmed</span> quoted from a primary source and checked by an independent verifier · <span class="chip warn">uncertain</span> plausible, not yet proven · <span class="chip bad">corrected</span> partly wrong in first research, fixed · <span class="chip info">inferred</span> engineering inference, no source.</p>
+<ul class="facts">
+  <li><span class="chip ok">confirmed</span><div>Every current SERVO-DRIVE radio part (switch <code>23P5020</code>, drives <code>21FA00x</code>, <code>23.A00x</code>, <code>23KA00x</code>, flex receiver) is specified at 2.404–2.452 GHz, at most +4 dBm (2.5 mW), about 10 m range, "bidirectional, coded telegrams". Blum declares them under EN 300 440, never a sub-GHz standard.<span class="src">Blum instruction leaflet BA-139 v7 (EN and DE), EU declarations of conformity 2023–2026.</span></div></li>
+  <li><span class="chip ok">confirmed</span><div>The link is Nordic Enhanced ShockBurst as used by the nRF24L01+: GFSK at 1 Mbps, fixed channel 4 (2404 MHz) for operation and channel 10 (2410 MHz) for sync pairing, 5-byte addresses built as <code>0xDD</code> + 3-byte device ID reversed + pipe byte, dynamic payloads, auto-ACK with ACK payloads, CRC-16. Two independent sources agree at frame level. The RF chip itself has never been photographed. The ESP32's own Wi-Fi/BLE radio cannot speak it, so an external nRF24L01+ (or an nRF52840) is required.<span class="src">Port-Net library source, bluhm-de protocol page, Nordic nRF24L01+ product specification, Blum patents (2008 block diagram labels the radio "nRF"; the 2020 family names ShockBurst/ESB).</span></div></li>
+  <li><span class="chip ok">confirmed</span><div>An open-source ESP32 + nRF24L01+ library exists: <strong>Port-Net/BlumServoDrive</strong>. It pairs through the drive's own SYNC procedure as a virtual synchronised drive, learns the drive ID, sends absolute open/close (<code>0x25</code> wake, then <code>0x26</code> move), and fires OPEN/CLOSE callbacks on drive move frames. Caveats found by reading the code: single author, 15 commits, last one 2025-01-10, no documented test hardware or drive generation; the open/close byte (<code>0x01</code>/<code>0x10</code>) is mapped inconsistently between send and receive paths; four small bugs; LICENSE says GPL-2.0 while its metadata says LGPL-3.0.<span class="src">github.com/Port-Net/BlumServoDrive (every file read); verifier re-checked against the live repository.</span></div></li>
+  <li><span class="chip warn">uncertain</span><div>Whether a sync partner is told about <em>every</em> movement, including openings caused by a front press, is an untested assumption. Blum only documents that synchronised drives "move simultaneously". The library's receive path handles such frames, but nobody has logged them. This is the single most important thing Stage 1 must measure.<span class="src">Verifier verdict on claim C04; Blum BA-139 v7.</span></div></li>
+  <li><span class="chip ok">confirmed</span><div>The radio switch sends a trigger only: a fixed command byte, its own ID and a counter, with no open/close field. The drive chooses the direction from its own position, so any switch-style actuator is a toggle. On the analysed generation the drive does not check the counter, so there is no rolling code.<span class="src">Blum patent DE202009010203U1, bluhm-de frame decode, Port-Net code.</span></div></li>
+  <li><span class="chip ok">confirmed</span><div>A brief push on the front opens the flap (about 2 mm of distance-bumper travel). The flap can be moved by hand at any time. Neither action produces a switch frame.<span class="src">Blum BA-139 v7; Blum brochures 2010/2016.</span></div></li>
+  <li><span class="chip ok">confirmed</span><div>No AVENTOS drive unit has a wired control input. Its only cable is the two-core 24 V DC SELV power lead. Blum forbids connecting any other device to its power supply, so the ESP32 gets its own USB-C supply.<span class="src">Blum BA-139 v7, MA-502, power-supply leaflets; verifier found no contradiction.</span></div></li>
+  <li><span class="chip bad">corrected</span><div>Up to <strong>six</strong> switches can be paired to one drive unit, documented for both the classic drive and the HK top drive (the first research pass wrongly said "no limit documented for top"). Each switch binds to one drive. A spare <code>23P5020</code> costs about €29–38 in DE/AT. "Reset Wireless" or "reset" erases all switches and the sync and collision settings, so re-pairing must be documented.<span class="src">Blum Inc. AVENTOS HK top technical document 2021; Blum 2014 SERVO-DRIVE manual; lignoshop price page.</span></div></li>
+  <li><span class="chip warn">uncertain</span><div>Inside the switch: a 3.0 V CR2032, 10 mA rated, PCB <code>23P502L00.01</code>. The pad names "+3 V, GND, button to MCU, button to Vcc (maybe 1.8 V)" are a blogger's annotations after multimeter probing, not Blum markings; the 1.8 V figure is his guess. What is proven: feeding 3.3 V and bridging the two button pads with a floating contact for 0.8 s opens or closes an HK top flap. Blum's lean protection ignores presses held too long.<span class="src">daumemo build log (2026-02); Blum BA-139 v7 technical data; verifier on claim C11.</span></div></li>
+  <li><span class="chip ok">confirmed</span><div>Collision detection stops opening and closing when the front meets a body part or object, even just after a close command. After a power interruption the flap stays put and the next switch press re-activates the drive. Duty rating S3 5 %, at most 10 movements per 10 minutes. Feedback is by LEDs only, there is no beeper.<span class="src">Blum BA-139 v7; Blum Inc. 2014 and Blum AU brochures.</span></div></li>
+  <li><span class="chip ok">confirmed</span><div>Blum offers no timer, auto-close, app or API for SERVO-DRIVE for AVENTOS. The only timed close in the family is the 2.5/4/8 s hold-open of SERVO-DRIVE flex for fridge and dishwasher doors. "SERVO-DRIVE smart" is an unreleased concept.<span class="src">All Blum manuals opened; Blum press page; verifier on claim C14.</span></div></li>
+  <li><span class="chip ok">confirmed</span><div>Three current drive families: <code>21FA00x</code> for classic HF/HS/HL (buttons SWITCH / SYNC / COLL / Reset Motion / Reset Wireless), <code>23KA00x</code> for HK top and <code>23.A00x</code> for HF/HS/HL top (EU 2023; buttons Connect / OK / Play "test 2x"). The drive label on the left lift mechanism shows article number, BAU serial and FCC ID. Blum updated the SERVO-DRIVE electronics in September 2025, and its 2020 patent family describes optional encryption and time windows. The library's pairing flow matches the classic SYNC buttons; the top generation is untested.<span class="src">Blum programme pages, FCC supplier declaration, patents US12698670B2 family, Port-Net code.</span></div></li>
+  <li><span class="chip ok">confirmed</span><div>No Blum document describes Bluetooth anywhere in SERVO-DRIVE for AVENTOS. The HF/HS/HL top drive <code>23.A00x</code> carries the same radio data as the switch and is declared under EN 300 440 (2023 DoC), its FCC grant is a Part 15.249 transmitter at 2404–2452 MHz, and the switch is filed as "2.4 GHz proprietary, GFSK". The only "Bluetooth" mention found is a US retailer's product bullet.<span class="src">Blum BA-139 v7 technical data; EU DoC 23.A000/23.A001 (2023-09-06); FCC W95-23A001 and W95-23P502L00-01 records; retailer listing (McFadden's).</span></div></li>
+  <li><span class="chip warn">uncertain</span><div>nRF24L01+ clones (Si24R1, BK2425/RFM7x, XN297) are reported to fail exactly the ACK-payload and dynamic-payload exchange this protocol needs. Community reports, no vendor erratum. Buy modules sold as genuine Nordic parts and test two sources before committing to a PCB.<span class="src">RF24 library issues and community reports.</span></div></li>
+  <li><span class="chip ok">confirmed</span><div>The library's example pins match a Seeed XIAO ESP32-C6 exactly (CSN D0, CE D1, SPI on D8/D9/D10, BOOT as pairing button). A XIAO ESP32-C3 also works but its MISO is GPIO9, a strapping pin, so CSN needs a pull-up or the pins must be remapped. Needs arduino-esp32 core 3.x; RF24 1.6.x masks the IRQ pin by default.<span class="src">Port-Net example, Seeed XIAO wikis, RF24 changelog.</span></div></li>
+  <li><span class="chip ok">confirmed</span><div>Transmit limits: EU 10 mW e.i.r.p. in 2400–2483.5 MHz (ERC/REC 70-03 band i, EN 300 440); US FCC 15.249. A plain nRF24L01+ with PCB antenna at low or high power level is far below the EU limit. PA+LNA modules are unnecessary and would exceed the limit at full power.<span class="src">ERC/REC 70-03 (Oct 2026 edition), 47 CFR 15.249, Nordic product specification.</span></div></li>
+  <li><span class="chip info">inferred</span><div>Wi-Fi channel 1 overlaps 2404 and 2410 MHz; an ESP32 transmitting a few centimetres from the nRF24 antenna can mask a drive frame. The device should run standalone first; if Wi-Fi is added, put the router on channel 6 or higher and separate the two antennas in the enclosure.</div></li>
+  <li><span class="chip ok">confirmed</span><div>Prior art: one implemented modified-switch build with a reed sensor (daumemo, Z-Wave, HK top, Feb 2026), one protocol write-up with paywalled addresses (bluhm-de, 2023), one unbuilt Shelly Uni plan (Jan 2025). Nothing exists in ESPHome, Home Assistant core, rtl_433, Flipper or URH.<span class="src">Searches in EN/DE/FR/NL/IT, GitHub code search, forums; exact negative results recorded in the raw findings.</span></div></li>
+  <li><span class="chip ok">confirmed</span><div>Enclosure: YAPP_Box (MIT) is a parametric OpenSCAD project-box generator with standoffs, insert sockets, snap joins, light tubes, push buttons and mounting tabs; NopSCADlib has a XIAO fit-check model. PLA/PETG walls lose under 0.01 dB at 2.4 GHz. Keep the antenna at least 15 mm from metal and the box at least 30 mm from the Blum power supply; keep cables away from the lift's moving parts.<span class="src">YAPP_Box and NopSCADlib repositories, Espressif antenna guidance, Blum installation constraints.</span></div></li>
+</ul>
+
+<h2 id="arch">How it would work</h2>
+<figure>
+<pre class="mermaid">
+flowchart LR
+  SW[Blum radio switch 23P5020] -- "trigger frame, 2.4 GHz" --> DRV[SERVO-DRIVE drive unit]
+  FRONT[Push on the front or by hand] --> DRV
+  DRV -- "motor" --> FLAP[AVENTOS flap]
+  FLAP -- "magnet" --> REED[Reed sensor on carcass]
+  REED --> MCU[XIAO ESP32-C6]
+  USB[USB-C 5 V adapter] --> MCU
+  MCU -- "SPI" --> NRF[nRF24L01+ module]
+  NRF -- "ch 4, absolute close" --> DRV
+  DRV -- "move events to sync partner" --> NRF
+  MCU --> UI[Buzzer, LED, cancel button]
+  MCU -. "fallback only" .-> PM[PhotoMOS contact]
+  PM -. "0.8 s press" .-> SW2[Spare 23P5020]
+  SW2 -. "trigger frame" .-> DRV
+</pre>
+<figcaption>Block diagram. Solid lines are the recommended build. Dotted lines are the fallback actuator used only if gate G1 fails.</figcaption>
+</figure>
+<figure>
+<pre class="mermaid">
+stateDiagram-v2
+  [*] --> Closed
+  Closed --> Open: reed opens, any cause
+  Open --> Counting: start 5 min timer
+  Counting --> Closed: closed by person, timer cancelled
+  Counting --> Warning: timer expired and reed still open
+  Warning --> Counting: cancel button or presence, add 2 min
+  Warning --> Closing: after 5 s beep and LED
+  Closing --> Closed: reed confirms closed
+  Closing --> Retry: no confirmation within 8 s
+  Retry --> Closing: one retry
+  Retry --> Fault: still open, LED blinks, no further action
+  Fault --> Closed: reed closes
+</pre>
+<figcaption>Firmware state machine. A close is only ever sent while the reed reports "open", which is what makes a toggle-type fallback safe.</figcaption>
+</figure>
+<h3>Components</h3>
+<ul class="plain">
+  <li><strong>Controller:</strong> Seeed XIAO ESP32-C6 (21 × 17.8 mm, USB-C, matches the library's pin map). Firmware in Arduino/PlatformIO on arduino-esp32 3.x with a patched fork of the library.</li>
+  <li><strong>Radio:</strong> genuine Nordic nRF24L01+ with PCB antenna, 10 µF + 100 nF at the module pins, powered from the XIAO 3V3 rail (about 13 mA in continuous receive).</li>
+  <li><strong>Flap sensor:</strong> reed switch on the carcass near the bottom front edge, magnet flush in the flap's inner face (the daumemo placement). Wired so a broken cable reads "not closed, do nothing".</li>
+  <li><strong>User interface:</strong> piezo buzzer and LED for the 5 s pre-close warning, one tactile button for cancel/postpone and (long press) pairing.</li>
+  <li><strong>Fallback output header:</strong> PhotoMOS AQY212EH with 330 Ω from a boot-quiet GPIO, across the button pads of a spare 23P5020 that stays on its own CR2032.</li>
+  <li><strong>Power:</strong> any 5 V USB-C adapter; nothing taps the Blum 24 V supply.</li>
+</ul>
+
+<h2 id="options">Options compared</h2>
+<div class="tablewrap">
+<table>
+  <thead><tr><th>Criterion</th><th>A · Radio only (sync partner)</th><th>B · Spare switch + reed</th><th>C · Hybrid, staged (recommended)</th></tr></thead>
+  <tbody>
+    <tr><td>Detects a front-press opening</td><td>Maybe (untested relay of move events)</td><td>Yes, via reed</td><td>Yes, reed always; radio events as a bonus</td></tr>
+    <tr><td>Modifies Blum hardware</td><td>No (uses one of three sync slots)</td><td>Yes (a spare switch is opened and wired; the original stays untouched)</td><td>No, unless the fallback is needed</td></tr>
+    <tr><td>Close command</td><td>Absolute close, idempotent</td><td>Toggle, needs reliable state</td><td>Absolute; toggle only as fallback, gated by reed</td></tr>
+    <tr><td>Generation risk</td><td>High: untested on top drives and on the Sept 2025 electronics</td><td>Low: works with any pairable switch</td><td>Low: fallback covers a failed gate</td></tr>
+    <tr><td>Parts cost</td><td class="num">≈ €35</td><td class="num">≈ €65</td><td class="num">€35, +€30 if fallback</td></tr>
+    <tr><td>Effort</td><td>1–2 evening spike, then firmware</td><td>Fine soldering on test pads, then firmware</td><td>Spike first, then one of the two</td></tr>
+    <tr><td>Matches the original request ("catch the signal, send a signal")</td><td>Yes</td><td>Partly (sends, does not listen)</td><td>Yes</td></tr>
+    <tr><td>Main failure mode</td><td>Drive rejects pairing or does not relay moves</td><td>Phantom press opens a closed flap</td><td>Same as A or B, each mitigated</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Discarded: a servo or SwitchBot pushing the original button (battery device, mounting trouble), tapping the drive's 24 V current for motion detection (modifies Blum cabling, no position information), an accelerometer on the front (fails on HL parallel lifts), and replacing Blum's electronics (loses collision detection).</p>
+
+<h2 id="stages">Staged plan and gates</h2>
+<ol class="gates">
+  <li>
+    <h3 style="margin-top:0">Stage 0 · Identify and observe (at home, about one hour)</h3>
+    <p>Work through the <a href="#checks">home checks</a>: label photos, the four quick tests, reed placement, power socket. Answer the <a href="#decisions">decisions</a>. Nothing is bought yet.</p>
+    <div class="gate"><b>Gate G0:</b> drive generation known (classic 21FA / HK top 23KA / HF-HS-HL top 23.A), switch part number known, decisions D1–D9 answered.</div>
+  </li>
+  <li>
+    <h3 style="margin-top:0">Stage 1 · Radio feasibility spike (one or two evenings, about €20)</h3>
+    <p>Breadboard a XIAO ESP32-C6 with a genuine nRF24L01+ and a 10 µF capacitor. Fork the library, fix its four known bugs, enable debug logging. On your HF top drive: press Link on the drive (that mode accepts switches and other drives), start the library's sync routine within its 20 s window and watch for the drive's acknowledgement on channel 10; if the drive then expects the reference run, press Play and log everything it sends. A Reset on the drive restores factory settings and only costs re-linking your switches (Link, press each switch, Ok). Also run a Bluetooth scan from the ESP32-C6 while the drive is in Link mode, to close the Bluetooth question. Then log raw frames while: pressing the switch to close, pressing it to open, pushing the front, moving the flap by hand. Finally send one absolute close with the flap open, and one with it already closed.</p>
+    <div class="gate"><b>Gate G1 (go/no-go):</b> pairing succeeds; a drive-originated move frame is seen for switch-triggered moves; the absolute close works and is harmless on an already-closed flap. Bonus: front-press moves are relayed. <b>Go</b> → radio actuator. <b>No-go</b> → fallback: link the spare 23P5020 to the drive (Link, press the switch, Ok) and wire its button pads to the PhotoMOS header. Either way the reed sensor stays. Because HF top is the untested generation, order the spare together with the spike parts (D10) so a no-go costs no extra week.</div>
+  </li>
+  <li>
+    <h3 style="margin-top:0">Stage 2 · Device build and soak (two or three weekends, about €15 more)</h3>
+    <p>Firmware state machine from the diagram above, configurable delay (default 5 min), reed input with debounce, buzzer and LED warning, cancel button, rate limiting to respect the drive's duty rating, boot-quiet outputs, watchdog, optional MQTT or Home Assistant exposure. Bench test against the real drive, install, and run a one-week logged soak.</p>
+    <div class="gate"><b>Gate G2:</b> 20 consecutive correct auto-closes, zero unintended openings, zero phantom presses across ten power cycles, one deliberate obstruction stopped by Blum's collision detection and handled by the retry/fault path.</div>
+  </li>
+  <li>
+    <h3 style="margin-top:0">Stage 3 · OpenSCAD enclosure (one weekend, about €5)</h3>
+    <p>YAPP_Box project box: standoffs for the XIAO, slot for the nRF24 module with its antenna end clear of walls and metal, USB-C cutout, LED light tube, button cap, reed cable strain relief, M2 heat-set inserts (3.2 mm holes), VHB tape or two screws into the carcass. Fit-check with the NopSCADlib XIAO model, print in PETG, keep 30 mm from the Blum power supply.</p>
+    <div class="gate"><b>Gate G3:</b> case closes without pressure on the antenna, reed cable is captive, button and LED usable, device re-passes G2 inside the case.</div>
+  </li>
+</ol>
+
+<h2 id="bom">Bill of materials</h2>
+<p>EU prices as seen in November 2026, rounded. Core build about €35; add about €30 only if the fallback switch is needed.</p>
+<div class="tablewrap">
+<table>
+  <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr><td>Seeed XIAO ESP32-C6</td><td class="num">1</td><td class="num">€8.50</td><td>Matches the library's pin map. XIAO ESP32-C3 (€7.90) works with pin remap and CSN pull-up.</td></tr>
+    <tr><td>nRF24L01+ module, PCB antenna, genuine Nordic</td><td class="num">2–3</td><td class="num">€8 (3-pack)</td><td>Clone risk: buy from a source that states a Nordic part; test two batches.</td></tr>
+    <tr><td>10 µF electrolytic + 100 nF ceramic</td><td class="num">1 each</td><td class="num">€0.50</td><td>Soldered at the module's VCC/GND pins.</td></tr>
+    <tr><td>Reed switch + magnet (MC-38 style or 8 mm glass reed)</td><td class="num">1 set</td><td class="num">€2</td><td>Actuates at 15–25 mm; flush-mount the magnet in the flap.</td></tr>
+    <tr><td>Piezo buzzer 3 V, LED, 330 Ω, tactile button</td><td class="num">1 set</td><td class="num">€2</td><td>Pre-close warning, cancel/pair button.</td></tr>
+    <tr><td>PhotoMOS AQY212EH + 330 Ω</td><td class="num">1</td><td class="num">€2</td><td>Fallback output header; floating contact, no polarity.</td></tr>
+    <tr><td>Wires, JST or Dupont headers, perfboard</td><td class="num">—</td><td class="num">€3</td><td></td></tr>
+    <tr><td>USB-C 5 V adapter and cable</td><td class="num">1</td><td class="num">€8</td><td>Dedicated supply; do not tap the Blum 24 V.</td></tr>
+    <tr><td>PETG filament, M2 heat-set inserts, VHB tape</td><td class="num">—</td><td class="num">€5</td><td>Stage 3.</td></tr>
+    <tr class="rec"><td><strong>Core total</strong></td><td></td><td class="num"><strong>≈ €39</strong></td><td></td></tr>
+    <tr><td>Blum SERVO-DRIVE switch 23P5020 (fallback only)</td><td class="num">1</td><td class="num">€29–38</td><td>Pairs as the up-to-sixth switch; the original stays untouched.</td></tr>
+    <tr><td>Optional: LD2410 mmWave presence sensor</td><td class="num">1</td><td class="num">€5</td><td>Postpones closing while someone stands at the cabinet.</td></tr>
+    <tr><td>Optional: Nordic nRF52840 dongle</td><td class="num">1</td><td class="num">€12</td><td>Passive ESB analyser if Stage 1 needs deeper logging. No RTL-SDR: it cannot tune 2.4 GHz.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="safety">Safety and robustness</h2>
+<ul class="plain">
+  <li><strong>Blum stays in charge of the motion.</strong> Collision detection remains active; the device never holds a button and never sends more than one close per minute, within the drive's 10 moves per 10 minutes rating.</li>
+  <li><strong>Warn before closing.</strong> 5 s of beeping and a blinking LED before any unattended close, the pattern required of unattended garage-door closers. A press on the button postpones by two minutes. An optional presence sensor postpones automatically.</li>
+  <li><strong>Never close blind.</strong> A close is sent only while the reed reports "open". The radio path sends an absolute close, so a stale state cannot open the flap. The fallback toggle is gated by the same reed check.</li>
+  <li><strong>Confirm, retry once, then stop.</strong> No "closed" within 8 s: one retry, then a latched fault with a blinking LED and no further action until a person closes the flap. This is also what happens when Blum's collision detection stops the flap on an obstacle.</li>
+  <li><strong>Power-up discipline.</strong> Outputs on boot-quiet pins with pull-downs, no action in the first 60 s after power-up, reed read before any decision. After a mains cut the drive itself needs a switch press, which the device must not fake.</li>
+  <li><strong>Master off.</strong> Blum already recommends a switched outlet for its power supply; the device dies with it.</li>
+  <li><strong>Children and pets.</strong> Pinch area is the lever; the warning, the cancel button and the presence option cover it. A night schedule or longer delay is a cheap addition.</li>
+</ul>
+
+<h2 id="decisions">Decisions needed from you</h2>
+<p>Reply with the decision numbers and your choice, or comment on this page.</p>
+<div class="decision"><div class="q"><span class="id">D1</span>Approach</div><ul><li>C · Hybrid, staged: radio first, spare-switch fallback, reed always</li><li>A · Radio only</li><li>B · Spare switch + reed only</li></ul><div class="rec"><b>Recommended: C.</b> Keeps your original request alive, covers front-press openings, and has a proven exit if your drive generation rejects the library.</div></div>
+<div class="decision"><div class="q"><span class="id">D2</span>What starts the timer</div><ul><li>Any opening the reed sees: switch, front press, by hand</li><li>Only radio-detected moves</li></ul><div class="rec"><b>Recommended: any opening.</b> That is the only way to cover the normal front-press use.</div></div>
+<div class="decision"><div class="q"><span class="id">D3</span>Behaviour during the countdown</div><ul><li>Closing by hand or switch cancels the timer; re-opening restarts it</li><li>Timer continues regardless</li></ul><div class="rec"><b>Recommended: cancel on close, restart on re-open.</b></div></div>
+<div class="decision"><div class="q"><span class="id">D4</span>Board</div><ul><li>Seeed XIAO ESP32-C6</li><li>Seeed XIAO ESP32-C3</li><li>A board you already own (tell me which)</li></ul><div class="rec"><b>Recommended: XIAO ESP32-C6.</b> Same pins as the library example, so the spike is a copy-paste start.</div></div>
+<div class="decision"><div class="q"><span class="id">D5</span>Power</div><ul><li>Separate USB-C 5 V adapter</li><li>Battery (only possible for the fallback build with deep sleep)</li></ul><div class="rec"><b>Recommended: USB-C.</b> Continuous radio receive rules out a battery; Blum forbids loads on its 24 V supply.</div></div>
+<div class="decision"><div class="q"><span class="id">D6</span>Connectivity</div><ul><li>Standalone first, optional MQTT/Home Assistant later</li><li>Home Assistant from day one via an ESPHome external component</li></ul><div class="rec"><b>Recommended: standalone first.</b> Less Wi-Fi interference risk on channels 4/10, fewer moving parts during the spike.</div></div>
+<div class="decision"><div class="q"><span class="id">D7</span>Safety set</div><ul><li>Warning beep + LED, cancel button, one retry then fault</li><li>Add LD2410 presence veto (+€5)</li><li>Add a night window where auto-close is off</li></ul><div class="rec"><b>Recommended: the base set; presence veto if people often stand at this cabinet.</b></div></div>
+<div class="decision"><div class="q"><span class="id">D8</span>Delay</div><ul><li>5 minutes fixed</li><li>5 minutes default, adjustable 1–30 min by button combo or serial/MQTT</li></ul><div class="rec"><b>Recommended: adjustable, default 5 min.</b></div></div>
+<div class="decision"><div class="q"><span class="id">D9</span>Repository licence</div><ul><li>Keep MIT (fine while the firmware is private)</li><li>Switch to GPL-2.0-or-later before publishing firmware that links RF24 and the Port-Net code</li></ul><div class="rec"><b>Recommended: GPL-2.0-or-later when the firmware is published.</b> RF24 is GPL-2.0 and Port-Net's LICENSE file is GPL-2.0.</div></div>
+<div class="decision"><div class="q"><span class="id">D10</span>When to buy the spare switch (HF top only)</div><ul><li>Order the spare 23P5020 (€29–38) together with the Stage 1 parts</li><li>Wait for the G1 result first</li></ul><div class="rec"><b>Recommended: order it now.</b> Your drive is the generation the library was never tested on; if G1 fails you continue the same evening instead of waiting for a delivery. If G1 passes, the spare is still a useful second switch or stays unopened.</div></div>
+
+<h2 id="checks">Home checks before Stage 1</h2>
+<p>Tick what you can; photos answer most of these in one go. The boxes are for your own tracking and are not saved.</p>
+<ul class="checks">
+  <li><input type="checkbox" id="c1"><label for="c1">Photo of the white label on the drive unit (clipped to the left lift mechanism): article number <span class="mono">21FA… / 23.A… / 23KA…</span>, BAU serial, FCC ID.</label></li>
+  <li><input type="checkbox" id="c2"><label for="c2">Photo of the drive's buttons to confirm the top layout: Link / Ok / Play / Collision / Reset.</label></li>
+  <li><input type="checkbox" id="c3"><label for="c3">Back of the radio switch: <span class="mono">21P5020</span> or <span class="mono">23P5020</span>, one LED or two, FCC ID. How many switches are paired to this drive?</label></li>
+  <li><input type="checkbox" id="c4"><label for="c4">Lift type: AVENTOS HF top bi-fold (known). Is the drive synchronised or collision-linked with neighbouring cabinets? How many drives?</label></li>
+  <li><input type="checkbox" id="c5"><label for="c5">Purchase or installation date (before or after September 2025) and country.</label></li>
+  <li><input type="checkbox" id="c6"><label for="c6">Test 1: flap closed, press the switch. Does it open?</label></li>
+  <li><input type="checkbox" id="c7"><label for="c7">Test 2: press the switch while the flap is opening, then while closing. Stop, reverse, or ignored?</label></li>
+  <li><input type="checkbox" id="c8"><label for="c8">Test 3: with the flap open, hold the switch for 2–3 s. Is the press ignored (lean protection)?</label></li>
+  <li><input type="checkbox" id="c9"><label for="c9">Test 4: push the front to open, then close by hand. Any LED reaction on the drive?</label></li>
+  <li><input type="checkbox" id="c10"><label for="c10">Reed placement: is there room on the carcass bottom front edge and a spot on the flap's inner face for a flush magnet? What are the materials?</label></li>
+  <li><input type="checkbox" id="c11"><label for="c11">Power supply label (<span class="mono">Z10NE0… / Z10NA…</span>) and a free mains socket or USB port near the cabinet.</label></li>
+  <li><input type="checkbox" id="c12"><label for="c12">Tools and parts already on hand: soldering iron, 3D printer and filament, XIAO or other ESP32 boards, nRF24 modules, PlatformIO or Arduino IDE.</label></li>
+  <li><input type="checkbox" id="c13"><label for="c13">Home Assistant present? Router 2.4 GHz channel?</label></li>
+</ul>
+
+<h2 id="risks">Risks</h2>
+<div class="tablewrap">
+<table>
+  <thead><tr><th>Risk</th><th>Likelihood</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr><td>Library does not pair with a top-generation or post-Sept-2025 drive</td><td>High: HF top is that generation</td><td>Gate G1 decides early; fallback is the spare switch, which works with any pairable drive.</td></tr>
+    <tr><td>Front-press openings are not relayed to a sync partner</td><td>Medium</td><td>Reed sensor starts the timer regardless; radio events become a nice-to-have.</td></tr>
+    <tr><td>Open/close byte mapped the wrong way round</td><td>Medium</td><td>Calibrate in Stage 1 by logging real moves; reed gate makes a wrong guess harmless.</td></tr>
+    <tr><td>Clone nRF24 module fails ACK payloads</td><td>Medium</td><td>Genuine Nordic parts, two sources, test before PCB and case.</td></tr>
+    <tr><td>Using a sync slot; a later "Reset Wireless" unpairs everything</td><td>Low</td><td>Document the re-pairing procedure on the device and in the repo.</td></tr>
+    <tr><td>Wi-Fi interference on the radio channels</td><td>Low</td><td>Standalone first; router on channel 6+; antenna separation in the case.</td></tr>
+    <tr><td>Unattended close on a person or object</td><td>Low</td><td>Blum collision detection, 5 s warning, cancel button, presence option, one retry then fault.</td></tr>
+    <tr><td>Exceeding the drive's duty rating</td><td>Low</td><td>Rate limit: one auto-close per minute, counter per 10 minutes.</td></tr>
+    <tr><td>Phantom press after a reboot (fallback build)</td><td>Low</td><td>Boot-quiet GPIO with pull-down, self-ending pulse, 60 s hold-off at start.</td></tr>
+    <tr><td>Blum warranty on an opened spare switch</td><td>Certain if fallback</td><td>Only the spare is modified; the original switch and the drive stay stock.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="sources">Sources</h2>
+<ul class="sources">
+  <li>Blum, SERVO-DRIVE instruction leaflet BA-139 v7 (EN): <a href="https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sen_$aof_$v7.pdf">d2.blum.com … kla0031-ba-139 … v7.pdf</a></li>
+  <li>Blum, SERVO-DRIVE for AVENTOS programme (EU): <a href="https://www.blum.com/eu/en/products/motion-technologies/servo-drive/servo-drive-aventos/programme/">blum.com … servo-drive-aventos/programme</a></li>
+  <li>Blum Inc., AVENTOS HK top technical document (six switches per drive, Connect/OK/Play pairing): <a href="https://d2.blum.com/services/BEC003/aventoshktoptech_ep_dok_bus_">d2.blum.com … aventoshktoptech</a></li>
+  <li>Blum, SERVO-DRIVE troubleshooting (lean protection, power-loss behaviour): <a href="https://www.blum.com/us/en/landingpages/products/servo-drive/troubleshooting/">blum.com … servo-drive/troubleshooting</a></li>
+  <li>Port-Net, BlumServoDrive library (ESP32 + nRF24L01+): <a href="https://github.com/Port-Net/BlumServoDrive">github.com/Port-Net/BlumServoDrive</a></li>
+  <li>bluhm-de, "Blum ServoDrive wireless protocol deciphered": <a href="https://www.bluhm-de.com/content/os-tools/en/projects/home-information-system/blum-servodrive-wireless-protocol-deciphered.html">bluhm-de.com … protocol-deciphered</a></li>
+  <li>daumemo, Blum Servo-Drive to Z-Wave (modified switch + reed, HK top): <a href="https://daumemo.com/how-do-you-connect-a-blum-servo-drive-to-z-wave-home-assistant-system/">daumemo.com …</a> and its enclosure <a href="https://www.thingiverse.com/thing:7293224">thingiverse.com/thing:7293224</a></li>
+  <li>Shelly forum, Blum ServoDrive mit Shelly Uni (plan only): <a href="https://shelly-forum.com/thread/27978-blum-servodrive-mit-shelly-uni-steuern/">shelly-forum.com/thread/27978</a></li>
+  <li>FCC filings, Julius Blum GmbH, grantee W95: <a href="https://device.report/julius-blum/23p502l00">device.report/julius-blum/23p502l00</a>, <a href="https://fccid.io/W95-23A00L83">fccid.io/W95-23A00L83</a></li>
+  <li>Blum patents: <a href="https://patents.google.com/patent/DE202009010203U1">DE202009010203U1</a> (switch ID + function code, teach-in), <a href="https://patents.google.com/patent/US12698670B2/en">US12698670B2</a> (2020 family naming ShockBurst/ESB)</li>
+  <li>Nordic, Enhanced ShockBurst protocol (nRF Connect SDK): <a href="https://nrfconnectdocs.nordicsemi.com/ncs/latest/nrf/protocols/esb/index.html">nrfconnectdocs.nordicsemi.com … esb</a></li>
+  <li>nRF24 RF24 library: <a href="https://github.com/nRF24/RF24">github.com/nRF24/RF24</a>; nRF52 alternative driver: <a href="https://github.com/TMRh20/nrf_to_nrf">github.com/TMRh20/nrf_to_nrf</a></li>
+  <li>Seeed XIAO ESP32-C6: <a href="https://wiki.seeedstudio.com/xiao_esp32c6_getting_started/">wiki.seeedstudio.com … xiao_esp32c6</a>; XIAO ESP32-C3: <a href="https://wiki.seeedstudio.com/XIAO_ESP32C3_Getting_Started/">wiki.seeedstudio.com … XIAO_ESP32C3</a></li>
+  <li>YAPP_Box OpenSCAD project-box generator: <a href="https://github.com/mrWheel/YAPP_Box">github.com/mrWheel/YAPP_Box</a></li>
+  <li>Spare switch price reference: <a href="https://www.lignoshop.de/23p5020-servo-drive-schalter-weiss.html">lignoshop.de … 23p5020</a></li>
+  <li>Regulatory: ERC/REC 70-03 Annex 1 band i (10 mW e.i.r.p.), 47 CFR 15.249, IEC 60335-2-116:2025 (motorised kitchen units), Blum DoC for 23.A000/23.A001 citing EN 60335-1 and EN ISO 14118.</li>
+</ul>
+
+<footer>
+  <p>Draft 1.1, updated 2026-11-05 for an AVENTOS HF top drive, written from an eight-angle research sweep with adversarial verification of the key claims (10 of 14 verified at the time of writing; the remaining verdicts and the full research report are being written to <code>research/research-report.md</code> in the repository). Raw findings with evidence quotes and negative results are in <code>research/raw/</code>, the verification verdicts in <code>research/verification.md</code>. This plan is also stored as <code>docs/plan.md</code> and as a standalone copy of this page at <code>research/aventos-auto-close-plan.html</code>.</p>
+</footer>
+</div>
+
+</body>
+</html>

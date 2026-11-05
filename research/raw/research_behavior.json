@@ -1,0 +1,275 @@
+{
+ "angle": "Operational behaviour and electrical facts for non-RF integration: switch semantics, wired interfaces of the drive, extra switches, inside the 23P5020, powering an ESP32, safety, and any Blum auto-close or smart-home feature",
+ "summary": "VERIFIED FROM BLUM PRIMARY DOCS: Pressing the front opens the flap and pressing the switch closes it. The switch \"triggers the automatic opening and closing action\" (DE: \"Öffnen oder Schließen ... ausgelöst\"). User reports (woodworker.de 2023, daumemo 2026) confirm that pressing the switch also OPENS a closed flap. For a wired button emulation, one press therefore acts as a TOGGLE, so the device must know the flap state before it presses.\n- Collision detection stops both opening and closing on contact with a body part or object, even after the switch has been pressed to close. Closing is soft (BLUMOTION). The flap can be moved by hand at any time without damage.\n- Lean protection: only brief presses count. Blum troubleshooting says \"pressed too long (leaning protection triggered)\" and tells the user to press for a briefer time. daumemo used a 0.8 s pulse successfully.\n- Power cut during a motion: the flap stays where it is, and \"touch the switch to re-activate\". A 2013 Blum US FAQ says to hard-reset by cycling power 3 times.\n- Duty cycle: S3 5 %, max. 10 motions per 10 min.\n- No documented behaviour for a switch press during motion.\n\nWIRED INTERFACES: The only documented cable to an AVENTOS drive unit is the 2-core 24 V DC distribution cable (power only). Sync and collision avoidance are wireless. No external contact or trigger input exists. A wired sync cable exists only for drawer drives. SERVO-DRIVE flex has a plug-in wireless receiver (Z10C5007); AVENTOS drives have the radio built in. Blum: \"Never take apart a drive unit or a SERVO-DRIVE switch\".\n\nEXTRA SWITCHES: Additional switches can be paired without removing the existing one (\"Repeat procedure A 1-2 for additional SERVO-DRIVE switches\"). Blum allows up to 6 per drive unit, and each switch pairs with only one drive. Reset Wireless deletes all switches plus sync and collision settings. Price: 30.56 EUR incl. VAT (lignoshop, verified), about 29-38 EUR elsewhere in DE/AT, about USD 48-54 in the US (search snippets; Blum US lists 23P5020 as a set of 2). A surface-mount adapter 23P5216 exists.\n\nINSIDE THE SWITCH: 3.0 V CR2032, rated current 10 mA, LED flashes red when the battery is weak. The radio is 2.404-2.452 GHz, +4 dBm, about 10 m range, bidirectional \"coded telegrams\". The daumemo photos (inspected) show PCB 23P502L00.01 with test pads labelled \"+3 V\", \"GND\", \"Button to MCU\" and \"Button to Vcc (maybe 1.8 V)\", plus a tactile switch, a QFN radio chip and a 2x3 pad header. daumemo removed the cell, fed 3.34 V and wired the button pads to a Fibaro output. Because the button pad may sit on a 1.8 V rail, I infer that a potential-free PhotoMOS across the button pads is the safest ESP32 drive.\n\nPOWER (Blum PSUs, all 24 V DC):\n- Z10NA300 12 W / 0.5 A (one drive only)\n- Z10NE030 24 W / 1 A\n- Z10NA40x 24 W / 1 A\n- Z10NE040 72 W / 3 A\n- US Z10NE020G 72 W\n- Drive unit: 24 V, rated 2.0 A, standby 0.15-0.6 W.\n\nBlum forbids connecting non-SERVO-DRIVE devices to its PSU, but daumemo runs the drive from a generic Mean Well 24 V supply. The Blum PSU always plugs into a mains outlet, ideally a switched one, so a socket exists. My recommendation: power the ESP32 from its own USB supply, or tap 24 V only with a 24 W or larger PSU and a fused buck converter.\n\nSAFETY: Blum warns about children, the pinch area at the lever, and items between front and cabinet. It recommends a switched outlet against unintended activation. The drive DoC cites EN ISO 13849-1 and EN ISO 14118 (unexpected start-up).\n\nNO OFFICIAL INTEGRATION: No Blum app, smart-home product or auto-close timer exists for AVENTOS. Only SERVO-DRIVE flex (appliance doors) has 2.5/4/8 s hold-open times. Z10ZE000 is an earthquake sensor that cuts power to the drives.\n\nCROSS-LINK FOR THE RF ANGLE: GitHub Port-Net/BlumServoDrive (Dec 2024 to Jan 2025) is an ESP32 + nRF24L01 (RF24) library. It pairs through the drive's SYNC function, receives the drive's move notifications and sends explicit OPEN/CLOSE targets. This could cover both halves of the project with no hardware hack.\n\nLIMITS OF THIS PASS: Several sites returned 403 (fcc.report, fccid.io HTML pages, apps.fcc.gov, Thingiverse, manuals.plus, c4forums, Fibaro manuals). The web-search budget ran out near the end, so the isolation of the Fibaro outputs and video transcripts were not checked. Downloaded PDFs, photos and the library sources are in C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/ops_elec.",
+ "findings": [
+  {
+   "claim": "Official Blum semantics: pressing the front opens the flap and pressing the SERVO-DRIVE switch closes it. Blum also describes the switch as the trigger for both opening and closing.",
+   "confidence": "high",
+   "evidence": "BA-139/7 instruction leaflet (11.25), EN: \"The SERVO-DRIVE switch triggers the automatic opening and closing action of SERVO-DRIVE for AVENTOS. Press on the front - The lift system opens automatically. Press on the SERVO-DRIVE switch - The lift system closes automatically.\" DE edition: \"Über den SERVO-DRIVE-Schalter wird das automatische Öffnen oder Schließen von SERVO-DRIVE für AVENTOS ausgelöst. Druck auf die Front - die Klappe öffnet automatisch / Druck auf den SERVO-DRIVE-Schalter - die Klappe schließt automatisch.\" The same wording appears in MA-502/3 (10.20) and MA-400/2EN (06.10). Blum US programme page: \"a conveniently placed switch on the cabinet side brings the door down again softly ... thanks to the integrated soft-close BLUMOTION.\" The 2021 HK top US brochure says \"With one-touch opening and closing, SERVO-DRIVE increases the functionality of the cabinet\".",
+   "sources": [
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sen_$aof_$v7.pdf",
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sde_$aof_$v7.pdf",
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf",
+    "https://eggersmannusa.com/wp-content/uploads/2017/12/Blum_ServoDrive_EN.pdf",
+    "https://www.blum.com/us/en/products/motion-technologies/servo-drive/servo-drive-aventos/programme/",
+    "https://d2.blum.com/services/BEC003/aventoshktoptech_ep_dok_bus_$sen-us_$aof_$v5.pdf"
+   ],
+   "design_impact": "Electric opening has two triggers (a front press, sensed by the drive, and the switch), while electric closing has only the switch. The device's CLOSE action must therefore be a switch-equivalent command: a wired press on a donor switch, or a radio command. A mechanical push on the front would only ever open."
+  },
+  {
+   "claim": "In practice the switch toggles: pressed while the flap is closed, it opens the flap. A wired button emulation is therefore a TOGGLE, and the drive's own state decides the direction.",
+   "confidence": "medium",
+   "evidence": "woodworker.de Blum support forum, user 'ascona', 3 Feb 2023: \"Den dritten (ohne Beleuchtung, nur mit den 2 Funkschaltern ausgestattet) bekomme ich nicht zum öffnen.\" and \"Ohne Front öffnet der Aventos ohne Probleme beim druck auf den Schalter.\" daumemo (published 2026-02-11): the pins \"are used to short the trigger button, so it will open/close command to the Blum Servo-drive arm\" and \"the cabinet door can be opened or closed from an automation\". c4forums search snippet (page itself returned 403): \"connect two leads together till the motor moves, then solder wires to a relay on the controller\". The owner's own brief also says pressing the switch opens or closes the flap.",
+   "sources": [
+    "https://www.woodworker.de/forum/threads/aventos-hl-servo-drive.125962/",
+    "https://daumemo.com/how-do-you-connect-a-blum-servo-drive-to-z-wave-home-assistant-system/",
+    "https://www.c4forums.com/forums/topic/45942-blum-servo-drive/"
+   ],
+   "design_impact": "A flap-state sensor is mandatory: a reed switch plus magnet (as daumemo used), a microswitch, or an existing interior-light door contact. Firmware rules: (1) press only when the sensor says OPEN; (2) after a press, confirm CLOSED within roughly 10-20 s; (3) if the sensor shows the flap still open, do not blindly press again, because a toggle on a stopped or reversed flap could re-open it. 'Catching the OPEN command' becomes 'detect the flap opened' with a wired approach."
+  },
+  {
+   "claim": "Lean protection means only a brief press is accepted. A press held too long is ignored, and one too short or shallow is not registered.",
+   "confidence": "high",
+   "evidence": "BA-139/7: \"SERVO-DRIVE for AVENTOS is only triggered by a brief touch. Leaning on the lift system will not open it.\" (DE: \"wird nur durch kurzes Drücken ausgelöst\"). MA-400/2EN troubleshooting, problem 'Front does not move': \"Front and/or SERVO-DRIVE switch was pressed too long (leaning protection triggered) - Press the front and/or SERVO-DRIVE switch for a briefer time\" and \"Front and/or SERVO-DRIVE switch was not pressed long enough - Make a deliberate effort to press the front and/or SERVO-DRIVE switch (to the full extent of travel)\". daumemo: \"Parameter 156 - set to 8 (0.8 seconds) ... to imitate the push button press for the Blum Servo Drive trigger button.\" Blum does not publish the timing thresholds.",
+   "sources": [
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sen_$aof_$v7.pdf",
+    "https://eggersmannusa.com/wp-content/uploads/2017/12/Blum_ServoDrive_EN.pdf",
+    "https://daumemo.com/how-do-you-connect-a-blum-servo-drive-to-z-wave-home-assistant-system/"
+   ],
+   "design_impact": "Make the button pulse a firmware constant in the 200-800 ms range: 0.8 s is proven by daumemo, and shorter values should be tested on the owner's unit. Never hold the contact, and use a hardware or watchdog-safe default of contact OPEN on ESP32 reset or brownout, since a stuck closed contact equals a long press. Long presses are also used during pairing, so avoid them."
+  },
+  {
+   "claim": "Collision detection stops both opening and closing on contact, including after the close command has been sent. Blum also says the user can interrupt the motion at any time, but it does not document what a second switch press during motion does.",
+   "confidence": "high",
+   "evidence": "BA-139/7: \"The opening and closing action is interrupted automatically via the integrated collision detection feature when the front hits a body part or other object.\" Blum AT: \"Wenn die Front auf einen Körperteil oder Gegenstand stößt, wird der Öffnungs- bzw. Schließvorgang automatisch und unmittelbar gestoppt.\" 2010 Blum technical brochure: \"Even when the switch has just been pressed for closing - the closing procedure is halted immediately if the kitchen user again reaches into the cabinet and/or an object is placed between the cabinet and the front.\" and \"the kitchen user can interrupt the motion at any time\". SERVO-DRIVE uno folder FO-030/5 (06.21): \"Even if the close button has already been pressed, the lift system will stop safely with minimal resistance.\" Blum US overview: \"Should you need to, you can stop and restart the motion at any time.\" No Blum document found states whether a switch press during motion stops, reverses or is ignored.",
+   "sources": [
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sen_$aof_$v7.pdf",
+    "https://www.blum.com/at/de/produkte/bewegungstechnologien/servo-drive/servo-drive-aventos/programm/",
+    "https://www.furlat.lv/wp-content/uploads/2014/10/Aventos-Servo-Drive-range-technical.pdf",
+    "https://www.blum.com/file/kla0015-fo-030_fo_dok_bau?country=eu&language=en",
+    "https://www.blum.com/us/en/products/motion-technologies/servo-drive/overview/"
+   ],
+   "design_impact": "Obstruction safety is handled inside the drive, so the ESP32 needs no force sensing. The firmware must not send a second command during the motion window (to be measured on the owner's unit). A failed close (sensor still OPEN after the timeout) should end in an alert and one optional retry at most, never a loop. The owner should test press-during-motion behaviour (see questions)."
+  },
+  {
+   "claim": "The flap can be moved by hand at any time. After a power interruption the flap stays where it was, and a switch touch re-activates the drive. A 2013 Blum US FAQ hard-resets by cycling power 3 times, and the reference run must not be interrupted.",
+   "confidence": "high",
+   "evidence": "BA-139/7: \"The lift system can be opened or closed manually at any time without damaging SERVO-DRIVE for AVENTOS.\" and \"If the power supply is interrupted during the opening or closing process, the SERVO-DRIVE for AVENTOS lift system will remain in that position. The front can be closed manually, or when power is restored; simply touch the switch to re-activate SERVO-DRIVE function.\" 2010 brochure: \"Once the power has been restored, SERVO-DRIVE for AVENTOS is again functional - no resetting is required.\" Blum US 'SDR for AVT FAQ 10/31/2013': \"Hard reset drive unit by cycling power to the unit 3 times.\" MA-502/3, reference run: \"Front opens and closes 2x automatically: Under no circumstances should you try to manually interrupt or stop the process.\" kuechen-forum 2017: a user wanted to open manually and close electrically, and was told by quoting Blum that \"Die Klappe kann uneingeschränkt manuell geöffnet oder geschlossen werden, ohne dass Servo-Drive für Aventos dadurch beschädigt wird\".",
+   "sources": [
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sen_$aof_$v7.pdf",
+    "https://www.furlat.lv/wp-content/uploads/2014/10/Aventos-Servo-Drive-range-technical.pdf",
+    "https://3409204.app.netsuite.com/core/media/media.nl?id=39128&c=3409204&h=I7hFZKVLl7M8rCEdbdyTx-rTtlr8LS-2ySoJUI6AM-XP9YhH&_xt=.pdf",
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf",
+    "https://www.kuechen-forum.de/forum/themen/aventos-hf-mit-servodrive-manuell-oeffnen-aber-elektrisch-schliessen.25256/"
+   ],
+   "design_impact": "A manual opening probably produces no radio event, so detect openings with the state sensor and start the 5-minute timer on any OPEN transition, manual or electric. After a power-up, the ESP32 must not auto-close unless it has seen a fresh OPEN transition. If the ESP32 shares the Blum switched outlet, both power-cycle together, and the device must never cycle drive power itself (3 cycles is a hard reset). Never act during a reference run: suppress commands for a while after a power-up or after a Reset Motion LED state, if that can be detected."
+  },
+  {
+   "claim": "The AVENTOS drive unit has no documented wired control input. Its only cable is the 2-core 24 V DC distribution cable, which carries power only, and sync and collision avoidance are wireless. Wired extras exist only in other product lines.",
+   "confidence": "high",
+   "evidence": "2010 Blum technical brochure: \"6b Distribution cable - This cable is used to supply power to the drive unit. The maximum permitted operating power is 24V.\" so-tech dealer page: \"Leitungen: 2-adrig\", \"Über dieses Kabel werden die Korpuselemente bzw. Antriebseinheiten mit der benötigten Energie versorgt.\" Connecting node Z10V1000.01 (pierces the flat cable) is rated 24.0 V DC / 10.0 A. Drive buttons are on-board only: 21FA has <SWITCH>, <SYNC>, <COLL>, <Reset Motion>, <Reset Wireless>, as seen in the inspected MA-1098 pictogram; AVENTOS top and HK top have Connect/Link, OK, Play, collision and reset. Drawer drives use a wired cable (\"Two drive units that are supposed to open simultaneously must be connected via the synchronisation cable\"). SERVO-DRIVE flex takes a plug-in wireless receiver Z10C5007 (dealer: \"24 V input, edge-card power connection\"). BA-139/7: \"Never open a SERVO-DRIVE power supply unit, drive unit or SERVO-DRIVE switch.\" A 2009 DoC also lists \"21P0020.xx\", which I could not identify; no cabled AVENTOS switch was found.",
+   "sources": [
+    "https://www.furlat.lv/wp-content/uploads/2014/10/Aventos-Servo-Drive-range-technical.pdf",
+    "https://www.so-tech.de/Schubkasten----Zargensysteme/Schubladensysteme/Servo-Drive/Blum-Servo-Drive-Verteilerkabel-Ablaengbar.html",
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sen_$aof_$v7.pdf",
+    "https://www.blum.com/file/cme90761_ma_dok_bau?country=us&language=en",
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf",
+    "https://www.blum.org.uk/products/blum-servo-flex-wireless-receiver-gry",
+    "https://eggersmannusa.com/wp-content/uploads/2017/12/Blum_ServoDrive_EN.pdf"
+   ],
+   "design_impact": "Do not look for a contact input on the drive, and do not open it. The realistic non-RF option is a modified donor 23P5020 switch. The RF options are replay, protocol emulation, or the sync-peer library cross-linked below. The distribution cable is useful only as a 24 V power source."
+  },
+  {
+   "claim": "Extra switches can be added: each drive unit accepts up to 6 paired switches, a switch can belong to only one drive unit, and Reset Wireless erases all pairings.",
+   "confidence": "high",
+   "evidence": "MA-502/3: \"A switch can only be assigned to one drive unit. 1 Press the <SWITCH> button until the LED flashes green. 2 Press the SERVO-DRIVE switch until the LED lights up green continuously. 3 Repeat procedure A 1-2 for additional SERVO-DRIVE switches in the cabinet.\" and \"F Reset Wireless Deactivates all functions: All active SERVO-DRIVE switches for the respective drive unit are deleted.\" MA-400/2EN adds that synchronisations and collision avoidance settings are deleted too. Blum US brochures 2014/2016: \"SERVO-DRIVE switch set ... For adding additional activation switches ... Set includes two switches. Up to six switches can be added per drive unit. NOTE: A switch can only be synchronized to one drive unit. SERVO-DRIVE switch set 21P5020\". HK top US brochure (2021): \"NOTE: Up to 6 switches can be programmed to a single drive unit\". HK top procedure: \"1 Press flashing link button. 2 Link button lights continuously. 3 Press each switch to link. 4 Press flashing 'ok' button to complete linking.\"",
+   "sources": [
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf",
+    "https://eggersmannusa.com/wp-content/uploads/2017/12/Blum_ServoDrive_EN.pdf",
+    "https://cdnimages.opentip.com/Docs/HDL/ServoDriveAventos_hl.pdf",
+    "https://www.woodworkerexpress.com/skin/common_files/files/specs/blum/blum-servo-drive-brochure.pdf",
+    "https://d2.blum.com/services/BEC003/aventoshktoptech_ep_dok_bus_$sen-us_$aof_$v5.pdf"
+   ],
+   "design_impact": "Buy a dedicated donor switch for the device and pair it additionally, leaving the owner's original untouched. The pairing procedure depends on the drive generation (SWITCH button on 21FA; Connect/Link + OK on AVENTOS top and HK top). Document it in the build notes and warn never to use Reset Wireless, which would unpair every switch and kill sync and collision settings."
+  },
+  {
+   "claim": "23P5020 prices and compatibility: about 29-38 EUR per piece in DE/AT, about 37 GBP in the UK, about 48-54 USD in the US (Blum US lists it as a set of 2). It replaces the older 21P5020, and a surface-mount adapter 23P5216 exists.",
+   "confidence": "medium",
+   "evidence": "lignoshop.de (fetched): \"23P5020 Servo-Drive Schalter seidenweiß SD Funkschalter f. Aventos, sym. weiß\", 30,56 EUR for seidenweiß and tiefgrau, 29,38 EUR for hellgrau, \"inkl. MwSt., zzgl. Versandkosten\", \"23P5020 ersetzt den alten Schalter 21P5020\". Search snippets only: Schachermayer AT 37,57 EUR (hellgrau, VE 20); Schreinersache 36,29 EUR incl. 19 % VAT (23P5020.12); Interfitco 37.22 GBP inc VAT; Wurth Machinery USD 53.96 each (dark grey); Woodworker Express USD 48.74 / 50.67; Opentip USD 48.12 / 51.44. Blum HK top US brochure (2021): \"SERVO-DRIVE switch (set of 2) Part no. 23P5020\" and \"SERVO-DRIVE switch adapter ... Doesnt require boring into side of cabinet ... 23P5216\". Blum SDoC: \"23P5020, 21P5020 both with PCB 23P502L00; 21P5020 with PCB 21P502L00\". Catalogue: colours SW / HGR / TGR, nylon.",
+   "sources": [
+    "https://www.lignoshop.de/23p5020-servo-drive-schalter-weiss.html",
+    "https://webshop.schachermayer.com/cat/de-AT/product/blum-servo-drive-schalter-fuer-aventos-symmetrisch-hellgrau-23p5020/103358086",
+    "https://shop.schreinersache.de/klappenbeschlaege/servo-drive-schalter-symmetrisch-seidenweiss",
+    "https://www.interfitco.com/blum-servo-drive-switch-23P5020/",
+    "https://www.wurthmachinery.com/DRABLSE022.html",
+    "https://www.opentip.com/Blum-23P5020-WH-Servo-Drive-for-Aventos-Silk-White-p-16156066.html",
+    "https://d2.blum.com/services/BEC003/aventoshktoptech_ep_dok_bus_$sen-us_$aof_$v5.pdf",
+    "https://publications.blum.com/2022/catalogue/en/564/"
+   ],
+   "design_impact": "BOM line: about 30 EUR for a donor switch, so the hack is cheap and reversible. The 23P5216 surface adapter or the switch's own housing can inform the OpenSCAD enclosure. The donor switch PCB can sit inside the ESP32 enclosure, since its range is typically 10 m."
+  },
+  {
+   "claim": "Switch electrical data: 3.0 V CR2032, 10 mA rated current, 2.404-2.452 GHz, +4 dBm, about 10 m range, bidirectional coded telegrams. A red LED warns of a weak or reversed battery, newer switches have a Connect LED, and Blum's 1 W standby figure is evidently a typo.",
+   "confidence": "high",
+   "evidence": "BA-139/7 technical data: \"SERVO-DRIVE switch 23P5020 - Supply voltage: 3.0 V Lithium button cell CR2032 - Rated current: 10 mA - Power consumption in standby mode: 1 W ... Frequency band: 2.404 to 2.452 GHz - Maximum radio-frequency power: +4 dBm / 2.5 mW - Range: typically 10 m (depending on material and contents) - Transmission method: bidirectional\". The DE edition gives \"bidirektional, über codierte Telegramme\". \"When the battery power begins to weaken, the battery display (LED) will begin to flash red.\" and \"If the battery is inserted incorrectly, the SERVO-DRIVE switch battery display will lights up red.\" BA-139/4 (03.21) shows switch variant A with \"1 Battery display (LED)\" and variant B with \"1 Battery display (LED) 2 Connect (LED)\". EU DoC 2026-03-18: \"23P5020 (SERVO-DRIVE Funkschalter mit LED Anzeige)\", \"Funk-Schalter zur Bedienung von Blum SERVO-DRIVE Produkten\", EN 300 440 v2.1.1. A c4forums snippet says the user had to \"replace the batteries every year or so in the remote\", which contradicts a 1 W standby draw.",
+   "sources": [
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sen_$aof_$v7.pdf",
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sde_$aof_$v7.pdf",
+    "https://fccid.io/m/d1b5fcb86d3083a1873b97676a0f2a009907166fb423cf3f44e77145eb2c5ac7.pdf",
+    "https://www.blum.com/file/cme213759_zf_dok_bau?country=eu&language=en",
+    "https://www.c4forums.com/forums/topic/45942-blum-servo-drive/"
+   ],
+   "design_impact": "Powering the donor switch from the ESP32's 3.3 V rail costs about 10 mA peak, which is negligible; add 10-100 uF of local decoupling. The switch's LED could be sensed (a phototransistor or tapping the LED net) as an acknowledgement signal, but this needs probing. If the device stays battery-powered instead, CR2032 life is about a year."
+  },
+  {
+   "claim": "daumemo teardown (HK top, switch 23P5020): five parts, PCB '23P502L00.01'. Two test pads supply power (+3 V, GND) and two pads short the button. It was powered at 3.34 V from a Fibaro Smart Implant, with the button pads wired straight to a Fibaro output pulsed for 0.8 s and a reed switch for flap state. No reader comments.",
+   "confidence": "high",
+   "evidence": "Blog text: \"Blum HK Top Aventos with Servo-drive, mainly the wireless trigger switch 23P5020 and a bumper 993.0530\"; \"It consists of 5 parts: 2 enclosure parts, one button extention (grey), the PCB and a coin cell. The battery won't be used anymore.\"; \"Two of those pins (red and blue in the photo) are power and two other (green and orange) are used to short the trigger button\"; \"Originally it is povered by a Li-Ion 3V coin cell\"; \"the output of the brown wire is 3.34 V\"; \"the trigger button has a direct connection to Fibaro Smart Implant's output channel\"; \"if you try to insert the button extention after closing the cover - the soldered wires will block the trigger\"; wires 0.22 mm2; PSU \"24V, 2A or 0.5A if original Blum PSU is also used\"; magnetic sensor \"OD 8mm\". Inspected photo DSC00074 labels the pads \"+3 V\", \"Button to MCU\", \"Button to Vcc (maybe 1.8 V)\" and \"GND\". The PCB back shows 'JX02 94V-0' and '1422'. Zooming the front side shows silkscreen '23P5(0)2L00.01', a white tactile switch, a QFN IC, a 2x3 gold pad array and a yellow arc (probably the antenna; inference). Schematics show one 24 V 2 A PSU feeding the Blum drive and the Fibaro, or the Blum PSU plus a 12-24 V 0.5 A PSU. Published 2026-02-11, modified 2026-02-24. No comment section on the page; the Thingiverse thing:7293224 returned 403.",
+   "sources": [
+    "https://daumemo.com/how-do-you-connect-a-blum-servo-drive-to-z-wave-home-assistant-system/",
+    "https://daumemo.com/wp-content/uploads/2026/02/DSC00074_Blum_view1_schematic0_wm.jpg",
+    "https://daumemo.com/wp-content/uploads/2026/02/Blum-HK-Top-Aventos-disassembled-servo-drive-trigger-button.jpg",
+    "https://daumemo.com/wp-content/uploads/2026/02/Blum-Aventos-Trigger-connection-to-Fibaro-Smart-Implant-using-one-PSU-1200x795.png",
+    "https://daumemo.com/wp-content/uploads/2026/02/Blum-Aventos-Trigger-connection-to-Fibaro-Smart-Implant-using-two-PSU-1200x845.png",
+    "https://www.thingiverse.com/thing:7293224"
+   ],
+   "design_impact": "This is a proven wiring template: ESP32 3V3 to the '+3 V' pad, a common GND, an isolated switch element across the 'Button to MCU' and 'Button to Vcc' pads, and a reed sensor on a GPIO with pull-up. Plan the enclosure so the grey button extension goes in before the cover closes, and route wires out of the actuator path. One 24 V supply can run both the drive and the controller (daumemo uses a Mean Well instead of the Blum PSU)."
+  },
+  {
+   "claim": "Recommended way to drive the donor switch from an ESP32: put a potential-free contact (PhotoMOS/SSR or reed relay) across the two button pads, rather than driving the SoC's button pin from a 3.3 V GPIO, because the button reference may be a ~1.8 V internal rail.",
+   "confidence": "low",
+   "evidence": "Inference from daumemo's own uncertain label \"Button to Vcc (maybe 1.8 V)\", which implies an active-high button tied to a possibly regulated rail, and from daumemo's use of a separate output channel to short the pads. Whether the Fibaro outputs are galvanically isolated could not be verified (the Fibaro manual returned 403 and the search budget was exhausted). Blum does not document the switch's internals.",
+   "sources": [
+    "https://daumemo.com/wp-content/uploads/2026/02/DSC00074_Blum_view1_schematic0_wm.jpg",
+    "https://daumemo.com/how-do-you-connect-a-blum-servo-drive-to-z-wave-home-assistant-system/"
+   ],
+   "design_impact": "BOM: one PhotoMOS (for example TLP222A, AQY212, CPC1017N), with its LED driven from a GPIO through about 330 ohm-1 kohm; it is bidirectional, has low leakage and is polarity-agnostic. An NPN optocoupler such as the PC817 also works if its collector goes to the 'Button to Vcc' pad. The same circuit works whether the switch keeps its CR2032 (fully isolated) or is fed from the ESP32 3.3 V. Before wiring, measure the voltage on 'Button to Vcc'."
+  },
+  {
+   "claim": "Blum power supplies are all 24 V DC SELV units. The drive unit is rated 2.0 A at 24 V and draws 0.15-0.6 W in standby.",
+   "confidence": "high",
+   "evidence": "BA-139/7: \"SERVO-DRIVE power supply unit Z10NE040 ... Output voltage: 24.0 V DC, Output current: 3.0 A, Output power: 72.0 W ... No-load power consumption: 0.15 W\" and \"SERVO-DRIVE plug-in power supply unit Z10NA40x ... 24.0 V DC ... 1.0 A ... 24.0 W ... No-load 0.10 W\". Drive 21FA00x: \"Supply voltage: 24.0 V DC, Rated current: 2.0 A, Power consumption in standby mode: 0.22 W (front closed), Operating mode: S3 5 % (max. 10 motions/10 min.)\". Drive 23.A00x / 23KA00x: 24 V, 2.0 A, standby 0.15 W (23.A001) or 0.40 W (23KA001). BA-139/4 (2021): \"24-Watt Blum transformer Z10NE030 ... 24.0 V d.c., 1.0 A\" and \"12-Watt Blum transformer Z10NA300 ... 0.5 A\". uno folder: \"12-Watt Blum plug-in transformer - Only suitable for one drive unit\". US Z10NE020G: \"Output voltage 24 VDC ... Output power max. 72 W ... Over voltage protection At 33 VDC ... Overload protection 10.5 A hiccup trip and restart mode\". HK top US: \"Z10NE03UG10 ... 24 W continuous / 12 W continuous* (*12 W applies to SERVO-DRIVE uno only)\". BA-139/7: \"All SERVO-DRIVE drive units ... are of protection class III and must only be supplied with safety extra-low voltage (SELV).\"",
+   "sources": [
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sen_$aof_$v7.pdf",
+    "https://fccid.io/m/d1b5fcb86d3083a1873b97676a0f2a009907166fb423cf3f44e77145eb2c5ac7.pdf",
+    "https://www.blum.com/file/kla0015-fo-030_fo_dok_bau?country=eu&language=en",
+    "https://cdnimages.opentip.com/Docs/HDL/ServoDriveAventos_hl.pdf",
+    "https://d2.blum.com/services/BEC003/aventoshktoptech_ep_dok_bus_$sen-us_$aof_$v5.pdf"
+   ],
+   "design_impact": "A 24 V-to-3.3 V or 5 V buck converter on the distribution cable is electrically trivial: an ESP32 averages roughly 0.3-1 W (inferred, not verified here), i.e. tens of mA at 24 V. Headroom depends on the PSU. A 72 W unit is ample. On a 12 W uno PSU (0.5 A), which already feeds a 2 A-rated motor, adding a load risks brownouts or hiccup trips during motion. The firmware must also tolerate supply sag when the motor starts."
+  },
+  {
+   "claim": "Blum forbids attaching non-SERVO-DRIVE loads to its PSU or changing the cabling, and recommends a switched outlet. A mains outlet always exists, because the Blum PSU plugs into one.",
+   "confidence": "high",
+   "evidence": "BA-139/7: \"SERVO-DRIVE components are the only devices that should be connected to the SERVO-DRIVE power supply unit.\" (DE: \"Schließen Sie am SERVO-DRIVE-Netzteil keine anderen Geräte als die dafür vorgesehenen SERVO-DRIVE-Komponenten an.\") Also: \"Only qualified specialists may install or replace SERVO-DRIVE components, modify the position of the SERVO-DRIVE power supply unit or modify the cabling.\"; \"Structural changes and spare parts not approved by the manufacturer ... are not allowed.\"; \"The mains plug and the SERVO-DRIVE power supply unit must be easily accessible.\"; \"The overall length of the cable for SERVO-DRIVE plug-in power supply units Z10NA40x must not exceed two metres.\"; 30 mm air gap around the PSU. 2010 brochure: \"You must use the Blum SERVO-DRIVE transformer cable and plug to keep the warranty valid.\" MA-502/3: \"Only 1 Blum transformer can be connected to each distribution cable.\" Counterexample: daumemo powers the drive and the controller from one generic Mean Well 24 V 2 A supply.",
+   "sources": [
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sen_$aof_$v7.pdf",
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sde_$aof_$v7.pdf",
+    "https://www.furlat.lv/wp-content/uploads/2014/10/Aventos-Servo-Drive-range-technical.pdf",
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf",
+    "https://daumemo.com/how-do-you-connect-a-blum-servo-drive-to-z-wave-home-assistant-system/"
+   ],
+   "design_impact": "Preferred: power the ESP32 from its own USB 5 V adapter on the same (switched) outlet strip, which keeps the Blum installation untouched and the warranty intact. If 24 V is tapped anyway, use a Blum connecting node or a pigtail, an input fuse or PTC (for example 250-500 mA), reverse-polarity protection and a 24 V buck converter, and only with a PSU of 24 W or more. Do not mount the enclosure over the PSU (30 mm air gap)."
+  },
+  {
+   "claim": "Safety requirements relevant to unattended automatic closing: Blum warnings about children and the pinch area at the lever, a switched outlet against unintended activation, the furniture secured to the wall, and a duty cycle of max. 10 motions per 10 min. The drive is certified against unexpected start-up and as a safety-related control.",
+   "confidence": "high",
+   "evidence": "BA-139/7 'Children': \"Opening and closing lift systems may pose a risk of injury to children. Persons, especially children, who are sitting or standing on work surfaces may be pushed from work surfaces or injured when opening and closing a lift system.\" Also: \"Children should be properly supervised when in the room so that they do not play with the lift system. To ensure that SERVO-DRIVE is not triggered unintentionally, the switched outlet should be turned off.\"; \"Reaching into the area around the lift system lever during the opening and closing motion can cause injury.\"; \"The furniture must be firmly secured to the wall so that it cannot topple over.\"; \"No items should be placed between the front and the cabinet.\" Troubleshooting (BA-139/4) for 'does not close completely': \"An object juts out over the front edge of the cabinet.\" DoC 23.A000/23.A001 lists EN ISO 12100, EN ISO 13849-1:2015, EN ISO 13849-2, EN 60335-1 and EN ISO 14118:2018. MA-502/3: \"If the furniture deviates from the Blum specifications, the conformity must be confirmed by the distributor of the furniture.\"",
+   "sources": [
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sen_$aof_$v7.pdf",
+    "https://fccid.io/m/d1b5fcb86d3083a1873b97676a0f2a009907166fb423cf3f44e77145eb2c5ac7.pdf",
+    "https://www.blum.com/file/cme205108_zf_dok_bau?country=eu&language=en",
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf"
+   ],
+   "design_impact": "An auto-close is a user-unexpected start, so add: an audible or visual pre-warning (for example 10 s of buzzer/LED) before closing; cancel and re-arm on any activity (the owner's switch press, a manual move, optionally a PIR/ToF presence sensor); at most one close attempt plus an alert on failure; a rate limit well below 10 motions per 10 min; and no command if the state sensor reads CLOSED or unknown. Mount the buzzer or LED where it is visible from the cabinet front."
+  },
+  {
+   "claim": "Blum offers no auto-close timer, app, API or smart-home product for SERVO-DRIVE AVENTOS. The only timed behaviour is the SERVO-DRIVE flex hold-open time (2.5/4/8 s) for appliance doors, and Z10ZE000 is an earthquake cut-off sensor.",
+   "confidence": "high",
+   "evidence": "There is no app, smart-home or timed-close mention in: the Blum US programme and overview pages, the AT programme page, BA-139/7, MA-502/3, MA-1098, the HK top US brochure, or the EU downloads page (23 documents and 25 videos listed, none about apps or integration). BA-139/7 on flex: \"The duration of the hold-open time can be set by firmly pressing and holding the rod ... 2.5 s (factory setting) / 4 s / 8 s\" and \"User does not touch door - Door closes again\". DoC: \"Z10ZE000 (SERVO-DRIVE Erschütterungs-Sensor)\" = \"elektronische Steuerung zur Abschaltung von Blum SERVO-DRIVE Antriebseinheiten bei Erdbeben\". COMBOX is a drawer corner-collision set (dealer listing), not a gateway.",
+   "sources": [
+    "https://www.blum.com/us/en/products/motion-technologies/servo-drive/servo-drive-aventos/programme/",
+    "https://www.blum.com/us/en/products/motion-technologies/servo-drive/overview/",
+    "https://www.blum.com/eu/en/products/motion-technologies/servo-drive/servo-drive-aventos/downloads-videos/",
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sen_$aof_$v7.pdf",
+    "https://www.blum.com/file/cme91302_zf_dok_bau?country=eu&language=en",
+    "https://www.interfitco.com/blum-servo-drive-combox-Z10ZC00A/"
+   ],
+   "design_impact": "The project does not simplify through an official product; a custom device is needed. Do not plan around COMBOX or the vibration sensor. The flex timer shows that Blum itself uses an 'auto-close if untouched' pattern for appliance doors, which is useful as a UX reference."
+  },
+  {
+   "claim": "Cross-link to the RF angle: GitHub Port-Net/BlumServoDrive is an ESP32 + nRF24L01 (RF24) Arduino library that pairs as a synchronised peer through the drive's SYNC function, receives the drive's move notifications and sends explicit open or close targets.",
+   "confidence": "medium",
+   "evidence": "gh API: repo created 2024-12-27, last push 2025-01-10, 0 stars / 0 issues / 0 forks. README: \"allow control of shelf equipped with blum servo drive.\" library.json: platform espressif32, dependency nrf24/RF24 ^1.4.9, license \"LGPL-3.0\" (GitHub detects GPL-2.0 for the LICENSE file). Code: setDataRate(RF24_1MBPS), disableCRC(), enableDynamicPayloads(), enableAckPayload(), setChannel(4); pairing uses setChannel(10) and sync_cfg_addr 0x534D554C42 ('BLUMS'), with a commented switch_cfg_addr 0x544D554C42. API: sendMove(idx, bool open), toggleState(idx), getPeerState(idx), events {SYNC_END, SYNC_IDENTIFY, OPEN, CLOSE, NEWPEER, UNLINK}. In sendMovePos(), open sets data[12]=0x10 and the template comment reads \"template set to close\" (0x01). In the receive path, a received 0x26 is \"Sync Move requested from\" a peer and raises an OPEN/CLOSE event. The two paths map 0x01 inconsistently, so this needs checking. No independent test reports were found.",
+   "sources": [
+    "https://github.com/Port-Net/BlumServoDrive",
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/src/blum_servo_drive.cpp",
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/src/blum_servo_drive.h",
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/examples/basic/basic_controller.cpp"
+   ],
+   "design_impact": "Potentially the cleanest design: an ESP32-C3 plus an nRF24L01 module (a few EUR). It would catch OPEN from the drive's own sync notifications and send an explicit, idempotent CLOSE, with no donor-switch hack and no replay. Constraints from my angle: the peer occupies a synchronisation slot (Blum: \"Up to three drive units can be synchronised\"), and sync conflicts with collision avoidance (see next finding). Keep the reed sensor anyway as a safety cross-check. The RF angle should validate this on hardware."
+  },
+  {
+   "claim": "Synchronisation and collision avoidance limits: up to 3 drive units can be synchronised, collision avoidance links up to 6 so only one front opens at a time, and on at least the older drive generation the two functions exclude each other.",
+   "confidence": "high",
+   "evidence": "MA-502/3: \"Up to three drive units can be synchronised allowing them to move simultaneously.\" and \"To avoid the collision of fronts, drive units (max. 6) can be linked so that only one front can be opened at a time. A front is prevented from opening as long as a linked front remains open.\" MA-400/2EN troubleshooting: \"11 The synchronisation of 2 drive units does not work <Wireless> LED lights red - Collision avoidance is activated - Deactivate collision avoidance\" and \"12 Collision avoidance for 2 drive units does not work ... The synchronisation of 2 drive units is activated - Deactivate synchronisation\". Blum troubleshooting page: does not respond when \"another front in the same collision group is open\". HK top: \"Recommended to link switches at this step as well\" (during sync).",
+   "sources": [
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf",
+    "https://eggersmannusa.com/wp-content/uploads/2017/12/Blum_ServoDrive_EN.pdf",
+    "https://www.blum.com/us/en/landingpages/products/servo-drive/troubleshooting/",
+    "https://d2.blum.com/services/BEC003/aventoshktoptech_ep_dok_bus_$sen-us_$aof_$v5.pdf"
+   ],
+   "design_impact": "If the owner's flap is in a collision-avoidance group with other fronts, a sync-peer approach may be unusable, while the donor-switch approach still works. Also, a CLOSE sent to a synchronised group would move every synced front. Ask the owner which functions are configured."
+  },
+  {
+   "claim": "Switch mounting and front-press sensing: the stock switch sits in a 35 mm bore on the inside of each cabinet side near the front edge, so the closed front covers it. Front presses are sensed by the drive through the 2 mm trigger travel given by the distance bumpers.",
+   "confidence": "medium",
+   "evidence": "MA-1098 pictogram (inspected): \"Ø35\" bore, \"12 ±0.3\" from the edge, depth \"11 +0.5\", pressed in by hand, no hammer. Blum US: \"One switch is pressed into each cabinet side.\" 2010 brochure: \"The SERVO-DRIVE switches are attached to the cabinet sides at the bottom.\" uno folder: switch \"within easy, ergonomic reach on the cabinet front edge\". Blum AT: \"Die Distanzpuffer gewährleisten den notwendigen Auslöseweg von 2 mm.\" MA-400/2EN, problem 3: \"Front does not open when pressing on the front, but it does close when pressing the SERVO-DRIVE switch - No Blum distance bumper is installed / There is no 2 mm bumper path\". 2013 US FAQ: \"Door is continuously pressed against SERVO-DRIVE switch in closed position ... Min. 2.5mm gap required.\" HK top: \"NOTE: The distance bumper should not touch the SERVO-DRIVE switch\". That the drive senses the push via the lever is my inference; Blum does not describe the mechanism.",
+   "sources": [
+    "https://www.blum.com/file/cme90761_ma_dok_bau?country=us&language=en",
+    "https://www.blum.com/us/en/products/motion-technologies/servo-drive/servo-drive-aventos/programme/",
+    "https://www.furlat.lv/wp-content/uploads/2014/10/Aventos-Servo-Drive-range-technical.pdf",
+    "https://www.blum.com/at/de/produkte/bewegungstechnologien/servo-drive/servo-drive-aventos/programm/",
+    "https://eggersmannusa.com/wp-content/uploads/2017/12/Blum_ServoDrive_EN.pdf",
+    "https://3409204.app.netsuite.com/core/media/media.nl?id=39128&c=3409204&h=I7hFZKVLl7M8rCEdbdyTx-rTtlr8LS-2ySoJUI6AM-XP9YhH&_xt=.pdf",
+    "https://d2.blum.com/services/BEC003/aventoshktoptech_ep_dok_bus_$sen-us_$aof_$v5.pdf"
+   ],
+   "design_impact": "A front-press opening probably generates no switch transmission, so an RF approach that only sniffs the switch would miss most openings. A flap-state sensor (or the drive's own sync notifications) is needed to catch OPEN reliably. The sensor magnet and reed should go where they do not interfere with the 2 mm bumper travel or the switch bore. The 35 mm bore geometry is a template if the enclosure should mimic or house the switch."
+  }
+ ],
+ "negative_results": [
+  "No Blum app, cloud API, Matter, KNX, Alexa or other smart-home product for SERVO-DRIVE was found. Searched in EN and DE ('Blum SERVO-DRIVE smart home app integration Alexa Matter KNX', 'Blum App SERVO-DRIVE steuern Smartphone Bluetooth') and checked the Blum US/AT programme and overview pages, the EU downloads page (23 documents, 25 videos) and the BA-139/7 leaflet.",
+  "No auto-close or delay timer exists for SERVO-DRIVE AVENTOS. Searched 'automatisch schließen nach Zeit Timer', 'auto close timer', 'close automatically after'. The only timed close is the SERVO-DRIVE flex hold-open time for appliance doors.",
+  "No wired trigger or external contact input on AVENTOS drive units appears in any Blum document (MA-400/2, MA-502/1, MA-502/3, MA-1098, BA-139/4, BA-139/7, HK top US brochure). The distribution cable is 2-core 24 V power only. No cabled AVENTOS switch generation was found; '21P0020.xx' from the 2009 DoC remains unidentified.",
+  "No Blum document specifies what a switch press does during motion (stop, reverse or ignore). Searched EN and DE; Blum only says the user 'can interrupt the motion at any time' and gives the collision-stop behaviour.",
+  "No reader comments exist on the daumemo post. The Thingiverse thing:7293224 and the stlfinder mirror returned HTTP 403 and were not read.",
+  "Blocked or inaccessible (not circumvented): fcc.report, fccid.io HTML pages (one fccid.io PDF mirror of BA-139/4 did download), apps.fcc.gov exhibit report ('Access Denied'), electric.garden, manuals.plus, manualslib, c4forums (snippet only), dasheimwerkerforum 'per Fernbedienung steuern' thread, Fibaro manuals site, schreinersache.de. Wurth Machinery's page text held no price; its price is from a search snippet only.",
+  "The industrialmonitordirect.com 'Knock-to-Open' article claims a 24 V trigger input with optocoupler wiring and timings but cites no Blum source. It was rejected as speculative.",
+  "Searched GitHub via gh CLI for 'blum servo' and 'blum aventos': the only relevant hit is Port-Net/BlumServoDrive. The GitHub MCP tools failed with bad credentials. Web searches in EN and DE for Shelly, ESP32, Arduino or Home Assistant hacks of the Blum radio switch found nothing beyond daumemo and Port-Net.",
+  "The web-search budget (200 per turn, shared) ran out near the end. Not done: verifying Fibaro Smart Implant output isolation, finding Blum video transcripts, and further forum threads on press-during-motion behaviour."
+ ],
+ "open_questions": [
+  "What does a switch press during an opening or closing motion do: stop, reverse, or nothing? This decides whether the firmware may ever send a second press.",
+  "Exact lean-protection timing: the maximum press duration accepted as a trigger and the minimum needed for registration. Is 0.2 s enough, and at what length is a press ignored?",
+  "Does the 23P5020 send a pure 'toggle' or an explicit target position (perhaps chosen from the drive state learned over the bidirectional link)? The Port-Net sync-peer protocol carries explicit 0x01/0x10 targets. RF angle.",
+  "Is a CLOSE to an already closed drive a no-op on the sync-peer or radio path? That would make retries safe.",
+  "What rail is the 'Button to Vcc' pad on (3 V battery or ~1.8 V internal regulator), and is the button active-high? Measure before wiring.",
+  "Does a manual opening or a front-press opening produce any radio traffic the device could observe (sync notifications to peers, switch status updates)?",
+  "Could an ESP32 load on a 12 W Blum plug-in PSU cause brownouts or hiccup trips during motor motion? Unmeasured.",
+  "Does the 'Connect' LED on 23P5020 indicate a successful acknowledgement from the drive? If so, it could serve as command feedback.",
+  "Which RF SoC is on PCB 23P502L00 (QFN on the front side)? RF angle / FCC internal photos.",
+  "Did the Port-Net library work with HF/HS/HL top 23.A001, HK top 23KA001 or older 21FA units? Not stated."
+ ],
+ "questions_for_user": [
+  "What part number is on the drive unit label (for example 21FA000/21FA001, 21KA00x, 23.A000/23.A001, 23KA000/23KA001), and which AVENTOS type do you have (HF, HS, HL, HK, HK top, or the 'top' series)? A photo of the button panel (SWITCH/SYNC/COLL vs Connect/OK/Play) would settle the generation.",
+  "What part number is on your switch (23P5020 or 21P5020)? Does it have one LED (battery) or two (battery + Connect), and where is it mounted: the standard 35 mm bore inside the cabinet side, or elsewhere? How many switches are paired to this drive?",
+  "Which Blum power supply is installed (label: Z10NA300 12 W, Z10NA40x 24 W, Z10NE030 24 W, Z10NE040 72 W, or a US Z10NE020G / Z10NE03UG10)? Is it on a switched outlet, and is there a free mains socket or USB port near the cabinet for the ESP32?",
+  "Is this flap synchronised with other drive units, or in a collision-avoidance group with other fronts?",
+  "Quick tests on your unit: (1) Flap closed, press the switch: does it open? (2) Press the switch during closing, and separately during opening: does it stop, reverse or ignore? (3) Hold the switch 2-3 s with the flap open: is the press ignored? (4) Open the flap by hand and press the switch: does it close?",
+  "Are you willing to buy a second 23P5020 (about 30 EUR incl. VAT in DE/AT, about USD 50 in the US) and open it as a donor switch, keeping your original untouched? Or would you rather try the nRF24-based Port-Net approach first?",
+  "Which region are you in (EU/DE/AT, UK, US)? This affects part numbers, prices and radio rules.",
+  "Are children or pets around the cabinet, and do items ever stick out past the cabinet edge? This sets how strong the pre-close warning and cancel features must be.",
+  "Does the cabinet already have an interior light with a door or flap contact that could double as the open/closed sensor? Where could a reed switch and magnet go without touching the distance bumpers?",
+  "Should the 5-minute timer start on every opening, including manual ones, and should any activity (your own switch press, movement in front of the cabinet) cancel or restart it?"
+ ]
+}

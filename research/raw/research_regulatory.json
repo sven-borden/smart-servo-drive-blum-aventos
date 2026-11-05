@@ -1,0 +1,207 @@
+{
+ "angle": "Radio link facts from the regulatory filings (FCC grantee W95, ISED, EU/UK declarations of conformity, other national approvals): band, channel plan, modulation, data rate, output power and RF chipset of the Blum SERVO-DRIVE radio switch and the AVENTOS drive units. The conclusions on protocol type and capture hardware rest on cross-checks against the Nordic nRF24L01+ datasheet and two hobbyist protocol sources.",
+ "summary": "VERIFIED from Blum primary documents (opened): every current SERVO-DRIVE radio part has the same radio spec, 2.404-2.452 GHz, max +4 dBm / 2.5 mW, typically 10 m range, 'bidirektional, über codierte Telegramme'. These parts are the switch 23P5020 (CR2032 battery, 10 mA), the drive units 21FA00x, 23.A00x (HF/HS/HL top) and 23KA00x (HK top), and the SERVO-DRIVE flex receiver. The radio sits inside each drive unit. All five Blum EU DoCs I opened (switch 2026-03-18, HF/HS/HL top and HK top drives 2023-09-06, 21FA drive 2025-06-26, plus a 2016 DoC) declare the radio under EN 300 440 (short-range devices, 1-40 GHz), never EN 300 328. No sub-GHz standard appears anywhere. Blum's FCC Supplier's Declaration of Conformity shows two switch PCB generations ('23P5020, 21P5020 both with PCB 23P502L00; 21P5020 with PCB 21P502L00') and two drive radio modules (21.A00L33 old, 23.A00L83 new). Z10NA/Z10NE are confirmed as transformers (power supplies), not radios.\n\nFCC filings (MEDIUM: the official FCC database and every mirror returned HTTP 403, so these facts come from search snippets of fccid.io, device.report and electric.garden):\n- W95-21P5020: old switch, approved 2009-12-23, 2403-2477 MHz. Exhibits include schematics titled 'Servo-drive main board' and internal photos.\n- W95-21A00L33: old drive radio module, Limited Single Modular Approval, 2403-2477 MHz.\n- W95-23P502L00: new switch, DTS (Part 15.247), granted 2019-09-18. TÜV Rheinland report 50277818 001. IC 8352A-23P502L00. The RF-chip operational description is confidential.\n- W95-23A00L83: new radio module, DTS, 2.404-2.452 GHz, 0.44 mW, application 2019-10-01.\n- W95-23P502L00-01: switch revision, application 2021-10-28. device.report lists '2.4 GHz Proprietary, 0 dBm, 2404/2410/2452 MHz, GFSK'.\n- W95-23A001: HF/HS/HL top drive, two grants 2022-10-23, JAB (Part 15 Class B digital device) plus DXX (Part 15.249 low-power transmitter), 2404-2452 MHz.\n\nConclusion on the radio link: proprietary messages on Nordic Enhanced ShockBurst (ESB, the nRF24L01+ link layer). Not BLE, not 802.15.4, no frequency hopping. Three fixed channels, 2404/2410/2452 MHz, which equal nRF24 RF_CH 4/10/52 (F0 = 2400 + RF_CH), at 1 Mbps GFSK. Blum's '+4 dBm' maximum equals the nRF24L01+ datasheet maximum output power (typ 0 dBm).\n\nThis conclusion is backed by prior art that refutes the scout's 'daumemo is the only prior art' lead:\n1. bluhm-de.com: 'Inside the buttons are nrf24L01+ transceivers', 'at least three different frequencies', ESB ACK payloads, and a sequence number that 'does not seem to be validated'. Channel and address values are paywalled.\n2. github.com/Port-Net/BlumServoDrive: LGPL-3.0, December 2024 to January 2025. An ESP32 plus nRF24L01+ library built on RF24 (setDataRate(RF24_1MBPS), dynamic payloads, ACK payloads, channel 4 for operation, channel 10 for sync discovery). It pairs as a 'synchronised drive' and exposes sendMove(idx, open) plus OPEN/CLOSE events. That is exactly the catch-OPEN, send-CLOSE-later use case.\n\nThe exact chip part is UNVERIFIED. The FCC internal photos were inaccessible, and the daumemo photo of PCB 23P502L00.01 shows one QFN with an unreadable marking, a 2x3 test-pad array and an edge-trace antenna.\n\nHardware implication: the ESP32's own radio cannot speak ESB, so add an nRF24L01+ module over SPI (the Port-Net design). Use an nRF52840 dongle or a HackRF with Universal Radio Hacker only for discovery or verification.\n\nKey local evidence files:\n- C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/blum_docs/cme213761_zf.pdf (switch DoC)\n- C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/blum_docs/me8343120_zf.pdf (HF/HS/HL drive DoC)\n- C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/fcc_dl/doc_me199043.pdf (HK top drive DoC)\n- C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/blum_docs/cme185362_zf.pdf (21FA drive DoC)\n- C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/fcc_dl/kla0031_ba139.pdf (BA-139/7 manual)\n- C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/retail_docs/ldl_kla0001.pdf (MA-502/3 with the FCC SDoC)\n- C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/gh_portnet/src_blum_servo_drive.cpp\n- C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/bluhm/page.html\n- C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/daumemo/crop_pcb_components.png",
+ "findings": [
+  {
+   "claim": "Blum's own technical data gives one radio spec for the switch and all current AVENTOS drive units: 2.404-2.452 GHz, max +4 dBm (2.5 mW), typically 10 m, bidirectional coded telegrams. The radio is built into the drive units.",
+   "confidence": "high",
+   "evidence": "BA-139/7 (11.25) German edition, technical data for 'Antriebseinheit SERVO-DRIVE für AVENTOS 21FA00x', 'Antriebseinheit SERVO-DRIVE für AVENTOS top 23.A00x, 23KA00x', 'SERVO-DRIVE flex Z10C500x (mit Funkempfänger)' and 'SERVO-DRIVE Schalter 23P5020': 'Frequenzband: 2,404 bis 2,452 GHz / Maximale Sendeleistung: +4 dBm / 2,5 mW / Reichweite: typisch 10 m (abhängig von Material und Füllgut) / Übertragungsart: bidirektional, über codierte Telegramme'. Switch: 'Versorgungsspannung: 3,0 V Lithium Knopfzelle CR2032 / Bemessungsstrom: 10 mA'. Simplified DoC in the same manual: 'Maschinentypen 23.A001, 23KA001, 21FA000.22, 21FA001.22, 21FA005.22 der Richtlinie 2006/42/EG und der Richtlinie 2014/53/EU' and 'Funkanlagentypen 23P5020 und Z10C5007 der Richtlinie 2014/53/EU'. The English edition has the same numbers ('Maximum radio-frequency power: +4 dBm / 2.5 mW').",
+   "sources": [
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sde_$aof_$v7.pdf",
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sen_$aof_$v7.pdf"
+   ],
+   "design_impact": "The ESP32 add-on talks directly to the radio in the drive unit. No hub or gateway is involved. The radio module must tune 2404-2452 MHz in 1 MHz steps, and the link budget is small (about 10 m through furniture), so place the device in or next to the cabinet. The 2.4 GHz band rules out sub-GHz modules (CC1101, RFM69, SX127x)."
+  },
+  {
+   "claim": "Every Blum SERVO-DRIVE radio product is declared under ETSI EN 300 440 (short-range devices, 1-40 GHz), never under EN 300 328 (2.4 GHz wideband systems) or EN 300 220 (sub-GHz). Blum classes the link as a low-power non-specific SRD on fixed channels.",
+   "confidence": "high",
+   "evidence": "Switch DoC (product type '23P5020 (SERVO-DRIVE Funkschalter mit LED Anzeige)', signed Höchst 2026-03-18): 2014/53/EU harmonised standard 'EN 300 440 v2.1.1'. Additionally applied: 'EN 62368-1: 2014 + AC: 2015', 'EN 62479: 2010', 'EN 301 489-1 v1.9.2', 'EN 301 489-1 v2.2.1', 'EN 301 489-3 v2.3.2'. DoC for 23.A000/23.A001 (HF/HL/HS top drive, 2023-09-06): 'EN 300 440 v2.1.1', EN 301 489-1 v2.2.3, EN 301 489-3 v2.2.0, EN 62479, EN 55014-1/-2, EN 60335-1 and machinery standards. DoC for 23KA000/23KA001 (HK top, 2023-09-06): 'EN 300 440 v2.1.1'. DoC for 21FA000.21-21FA005.22 (2025-06-26): 'EN 300 440 v2.1.1'. The 2016 DoC in MA-502/1EN (11.16): 'for the product type 21xA0x1 and modules 21P5020, 21.A00L33.xx plus Z10C5007 were used ETSI EN 300 440-2 V1.4.1'; 'The CE marking was affixed in 09.' None of these five DoCs cites EN 300 328 or EN 300 220.",
+   "sources": [
+    "https://www.blum.com/file/cme213761_zf_dok_bau?country=de&language=de",
+    "https://www.blum.com/file/me8343120_zf_dok_bau?country=de&language=de",
+    "https://www.blum.com/file/me199043_zf_dok_bau?country=de&language=de",
+    "https://www.blum.com/file/cme185362_zf_dok_bau?country=de&language=de",
+    "https://www.ballerina.de/media/config/media/content/downloads/montageanleitungen/montage_blum38.pdf",
+    "https://www.blum.com/de/de/produkte/bewegungstechnologien/servo-drive/servo-drive-aventos/downloads-videos/"
+   ],
+   "design_impact": "A non-wideband SRD classification means no frequency hopping and no adaptivity: one radio retuned between a few fixed channels is enough. In the EU, keep the DIY transmitter at or below 10 mW EIRP, the non-specific SRD limit, which is my reading and not a quoted source. A plain nRF24L01+ module at 0 dBm is fine. Avoid PA/LNA modules at full power."
+  },
+  {
+   "claim": "Julius Blum filings under FCC grantee code W95: two generations of switch and drive radio, all made by Blum and tested by TÜV Rheinland LGA Products GmbH.",
+   "confidence": "medium",
+   "evidence": "Search snippets from mirror sites:\n- W95-21P5020, 'Remote Control to open and close cupboard doors': 'Frequency Range: 2403-2477 MHz', APPROVED 2009-12-23. Exhibits listed: 'Test Setup, External Photos, Internal Photos, Block Diagram', 'Internal Photos | 2009-12-23 | PDF 228.9 KB', test report 'PDF 500.3 KB', and 'Schematics ... Servo-drive main board' (doc 1218569).\n- W95-21A00L33: 2403-2477 MHz, 'Limited Single Modular Approval', filed 2010-01-07 (application date also shown as 2009-12-23).\n- W95-23P502L00 Radio Switch: 'One grant has been issued under this FCC ID on 09/18/2019', equipment class DTS, related exhibit 'Test Report 50277818 001 23P502L00 P15 247 FCC only', 'Operational Description RF Chip' (confidential), internal photos 1.54 MiB (2019-11-09), 'IC: 8352A-23P502L00'.\n- W95-23A00L83 Radio Module: '2.404-2.452 GHz | 0.44 mW | 15C', 'Equipment Class: DTS - Digital Transmission System', application 2019-10-01. Manual 'SERVO-DRIVE RF Module 23.A00L83 ... Edition 30.08.2019'.\n- W95-23P502L00-01: 'Frequency Range: 2404-2452 MHz', application 2021-10-28, internal photos 204.3 KB, 'available: 2022-04-18'.\n- W95-23A001, SERVO DRIVE for AVENTOS HF/HS/HL top: 'Two grants have been issued under this FCC ID on 10/23/2022', 'JAB - Part 15 Class B Digital Device' plus 'DXX - Part 15 Low Power Communication Device Transmitter', 2404-2452 MHz. Exhibits 'Test Report JAB r1' (2.78 MiB) and 'Test Report DXX r1' (3.70 MiB); Z10NE030 transformer cross-listed.\nA Wayback Machine CDX index query (metadata only, no content opened) showed exactly these six IDs under fccid.io/fcc.report W95* paths.",
+   "sources": [
+    "https://fccid.io/W95-23A00L83",
+    "https://device.report/fccid/W9523P502L00",
+    "https://device.report/julius-blum/23p502l00",
+    "https://electric.garden/julius-blum-gmbh-w95/radio-switch-23p502l00",
+    "https://electric.garden/julius-blum-gmbh-w95/servo-drive-for-aventos-hf-hs-hl-top-23a001",
+    "https://fccid.io/W95-23P502L00-01/User-Manual/User-Manual-5498499",
+    "https://fcc.report/FCC-ID/W95-21P5020",
+    "https://fccid.io/W95-21P5020/Schematics/Servo-drive-main-board-1218569",
+    "https://fccid.io/document/1223763",
+    "https://web.archive.org/cdx/search/cdx?url=fcc.report/FCC-ID/W95*&output=txt"
+   ],
+   "design_impact": "The gen-2 parts (PCB 23P502L00, module 23.A00L83, drive 23A001) share 2404-2452 MHz, and all known protocol research fits that family. The 2009 gen-1 parts (21P502L00 / 21.A00L33) list a different range (2403-2477 MHz), so a gen-1 installation may not match the gen-2 channel plan. Find out the owner's generation before buying hardware. The public internal photos and the gen-1 schematic would settle the chip question if someone opens them in a normal browser on the FCC site."
+  },
+  {
+   "claim": "Blum's own FCC Supplier's Declaration of Conformity pins down which switch PCB and radio module go with which article numbers. It also confirms Z10NA/Z10NE parts are transformers, not radios.",
+   "confidence": "high",
+   "evidence": "MA-502/3 (10.20), 'Supplier's Declaration of Conformity 47 CFR § 2.1077': 'Product-Family: 23KA00y | y ∈ {0, 1}, 23.A00L83 / Product-Types: 21xA00y | x ∈ {F, L, S} y ∈ {0, 1}, Z10C5007 / 23P5020, 21P5020 both with PCB 23P502L00 / 21P5020 with PCB 21P502L00 / Z10A3000, Z10C5000 / Z10NA300, Z10NE030'. Also: 'radio equipment types 23.A00L83, 23P5020, 21P5020 and Z10C5007 conform to the Directive 2014/53/EU' and 'Blum transformer types Z10NA300 and Z10NE030 conform to the Directive 2014/35/EC and Directive 2014/30/EU'. TÜV Rheinland certificate CU 72091639 01 (16/09/2009): 'Servo-Drive: 21xA0y1 / Power Supply: Z10NE010.01, Z10NE50.01 (x= F, S, L, K; y= 0, 1)', 'DC 24V' and 'AC 100-240V'. The daumemo photo of a 23P5020 switch shows silkscreen '23P502L00.01'.",
+   "sources": [
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf",
+    "https://www.blum.com/file/kla0002_zf_dok_bau?country=de&language=de",
+    "https://daumemo.com/wp-content/uploads/2026/02/Blum-HK-Top-Aventos-disassembled-servo-drive-trigger-button.jpg"
+   ],
+   "design_impact": "The article number alone (21P5020) does not identify the radio generation, because 21P5020 shipped with either PCB. The owner should read the PCB silkscreen (21P502L00 vs 23P502L00.0x) or the drive label. This is a firmware compatibility check. The 24 V Z10NA/Z10NE transformer is a power-supply topic (cross-link to the power angle)."
+  },
+  {
+   "claim": "Channel plan: three fixed channels at 2404, 2410 and 2452 MHz, which map exactly to nRF24 RF_CH 4, 10 and 52. Channel 4 carries normal operation and channel 10 carries sync discovery; the role of 2452 MHz is unconfirmed (likely switch pairing/configuration).",
+   "confidence": "medium",
+   "evidence": "device.report listing for 23P502L00-01 (search snippet): '2.4 GHz Proprietary ... 0 dBm, 2404 MHz, 2410 MHz, 2452 MHz ... GFSK'. A FCC test channel set of 2404/2410/2452 instead of the usual low/mid/high 2404/2428/2452 points to exactly three operating channels.\nnRF24L01+ product spec 6.3: 'F0= 2400 + RF_CH [MHz]'.\nPort-Net/BlumServoDrive: begin() calls '_radio->setChannel(4);'; startSync() calls '_radio->setChannel(10); _radio->openReadingPipe(0, sync_cfg_addr);'.\nbluhm-de.com: 'They are working on at least three different frequencies: 1. Button communication 2. Programming 3. Syncing'.",
+   "sources": [
+    "https://device.report/julius-blum/23p502l00",
+    "https://www.sparkfun.com/datasheets/Components/SMD/nRF24L01Pluss_Preliminary_Product_Specification_v1_0.pdf",
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/src/blum_servo_drive.cpp",
+    "https://www.bluhm-de.com/content/os-tools/en/projects/home-information-system/blum-servodrive-wireless-protocol-deciphered.html"
+   ],
+   "design_impact": "One nRF24L01+ that retunes between channels 4, 10 and 52 covers everything. Run it on channel 4 normally and on channel 10 only while pairing. Wi-Fi coexistence (my inference): Wi-Fi channel 1 (2402-2422 MHz) overlaps 2404/2410 and channel 11 touches 2452, while channel 6 avoids all three. Also keep the ESP32's own Wi-Fi/BLE transmissions out of the nRF24's receive windows, or use a separate antenna placement."
+  },
+  {
+   "claim": "Modulation and data rate: GFSK at 1 Mbps.",
+   "confidence": "medium",
+   "evidence": "device.report snippet lists GFSK and a '1050 kHz' bandwidth figure (exact field meaning not visible).\nnRF24L01+ product spec Table 6: '20dB Bandwidth for Modulated Carrier (1Mbps) 900 typ / 1000 max kHz', 2 Mbps 1800/2000 kHz, 250 kbps 700/800 kHz. Table 5: 'Frequency deviation @ 1Mbps ±160 kHz'.\nThe switch is DTS, and 47 CFR 15.247(a)(2) says 'The minimum 6 dB bandwidth shall be at least 500 kHz', which excludes a narrow 250 kbps mode.\nPort-Net code: '_radio->setDataRate(RF24_1MBPS);'.",
+   "sources": [
+    "https://device.report/julius-blum/23p502l00",
+    "https://www.sparkfun.com/datasheets/Components/SMD/nRF24L01Pluss_Preliminary_Product_Specification_v1_0.pdf",
+    "https://www.law.cornell.edu/cfr/text/47/15.247",
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/src/blum_servo_drive.cpp"
+   ],
+   "design_impact": "Set the nRF24 to RF24_1MBPS; 250 kbps or 2 Mbps will not hear the drive. For SDR verification, a HackRF at 4-8 Msps centred on 2404/2410/2452 MHz with Universal Radio Hacker (GFSK, 1 Mbit/s, about ±160 kHz deviation) is enough. An RTL-SDR cannot tune 2.4 GHz."
+  },
+  {
+   "claim": "The link layer is Nordic Enhanced ShockBurst, the nRF24L01+ packet protocol, not BLE or 802.15.4. It uses 5-byte addresses built from a 24-bit device ID, dynamic payload length (9-14 bytes) and auto-ACK with ACK payloads. Pairing works by exchanging IDs on fixed configuration addresses.",
+   "confidence": "medium",
+   "evidence": "Port-Net: addressFromID() comment '// 0xDD LL NN MM 0X' returning '0xdd00000000LL | ...id bytes... | idx'; '_radio->enableDynamicPayloads(); _radio->disableCRC(); _radio->enableAckPayload();'; reading pipes 'openReadingPipe(1, addressFromID(_id, 1)); openReadingPipe(2, 0x02);'; 'uint64_t sync_cfg_addr = 0x534D554C42LL;' (ASCII 'BLUMS' read LSB-first) and '//uint64_t switch_cfg_addr = 0x544D554C42LL;' ('BLUMT').\nbluhm-de: 'The switch sends the following 9 byte sequence to the cupboard receiver address 01: ba MM NN ff 01 20 XX YY dd'; 'The cupboard receiver sends the following sequence as Ack Payload. ba MM NN 01 01 81 00 YY dd'; 'The receiver's ID is reversed and stored in the switch to be used as transmission address 01 (i.e. ddNNMMba01)'.\nnRF24L01+ spec: 'EN_CRC ... Enable CRC. Forced high if one of the bits in the EN_AA is high'. So on air the CRC stays enabled despite disableCRC(); its exact length is not confirmed.",
+   "sources": [
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/src/blum_servo_drive.cpp",
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/src/blum_servo_drive.h",
+    "https://www.bluhm-de.com/content/os-tools/en/projects/home-information-system/blum-servodrive-wireless-protocol-deciphered.html",
+    "https://www.sparkfun.com/datasheets/Components/SMD/nRF24L01Pluss_Preliminary_Product_Specification_v1_0.pdf"
+   ],
+   "design_impact": "A stock nRF24L01+ with the RF24 Arduino library can send and receive valid frames; no SDR is needed in the product. Once the drive's ID is known (it arrives during sync pairing), its switch address 'DD + reversed ID + 01' follows directly. To listen passively on that address, disable auto-ACK on that pipe, or the ESP32's ACK will collide with the real drive's ACK."
+  },
+  {
+   "claim": "RF chipset: most likely a Nordic nRF24-family part (an nRF24L01+ transceiver with an MCU, or the nRF24LE1 SoC), but the exact part is NOT verified. The FCC internal photos were inaccessible and the only public PCB photo is unreadable.",
+   "confidence": "low",
+   "evidence": "bluhm-de: 'Inside the buttons are nrf24L01+ transceivers.'\nBlum's declared maximum '+4 dBm / 2.5 mW' equals nRF24L01+ Table 6 'Maximum Output Power ... Typ 0, Max +4 dBm'.\ndaumemo photo of PCB '23P502L00.01 / S1 a' (my 4x upscaled crop) shows one small QFN with an illegible marking, a 2x3 gold test-pad array and a gold arc trace along the board edge (likely the antenna). The back side is marked 'JX02 94V-0 1422' and daumemo annotates pads '+3 V', 'Button to MCU', 'Button to Vcc (maybe 1.8 V)', 'GND'.\nFCC snippet: the W95-23P502L00 'Operational Description RF Chip' is confidential. I found no Nordic case study naming Blum.",
+   "sources": [
+    "https://www.bluhm-de.com/content/os-tools/en/projects/home-information-system/blum-servodrive-wireless-protocol-deciphered.html",
+    "https://www.sparkfun.com/datasheets/Components/SMD/nRF24L01Pluss_Preliminary_Product_Specification_v1_0.pdf",
+    "https://daumemo.com/how-do-you-connect-a-blum-servo-drive-to-z-wave-home-assistant-system/",
+    "https://daumemo.com/wp-content/uploads/2026/02/Blum-HK-Top-Aventos-disassembled-servo-drive-trigger-button.jpg",
+    "https://daumemo.com/wp-content/uploads/2026/02/DSC00074_Blum_view1_schematic0_wm-1200x779.jpg",
+    "https://device.report/julius-blum/23p502l00"
+   ],
+   "design_impact": "For our approach the exact part does not matter, because over-the-air compatibility with an nRF24L01+ is what counts. The radio module choice is an nRF24L01+ on SPI, with an nRF52840 running ESB as the fallback. A sharp macro photo of the owner's switch QFN, or the FCC internal photos opened manually on apps.fcc.gov, would close this question."
+  },
+  {
+   "claim": "Transmit power and rule parts differ by device. The switch is a DTS device (Part 15.247) at about 0 dBm. The 23.A00L83 module is DTS at 0.44 mW. The HF/HS/HL top drive (23A001) is certified only as a Part 15.249 low-power transmitter (DXX). All are well below Blum's EU declared maximum of +4 dBm.",
+   "confidence": "medium",
+   "evidence": "W95-23A00L83 snippet: '2.404-2.452 GHz | 0.44 mW | 15C', 'DTS'. device.report 23P502L00-01: '0 dBm'. W95-23A001: 'DXX - Part 15 Low Power Communication Device Transmitter' plus 'JAB - Part 15 Class B Digital Device'. 47 CFR 15.249(a), 2400-2483.5 MHz row: fundamental '50' millivolts/meter, harmonics '500' microvolts/meter; 'Field strength limits are specified at a distance of 3 meters.' (about -1 dBm EIRP; my conversion). Blum BA-139/7: '+4 dBm / 2,5 mW'.",
+   "sources": [
+    "https://fccid.io/W95-23A00L83",
+    "https://device.report/julius-blum/23p502l00",
+    "https://electric.garden/julius-blum-gmbh-w95/servo-drive-for-aventos-hf-hs-hl-top-23a001",
+    "https://www.law.cornell.edu/cfr/text/47/15.249",
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sde_$aof_$v7.pdf"
+   ],
+   "design_impact": "The drive's replies are weak, around -1 to -4 dBm EIRP. Mount the ESP32 plus nRF24 within a few metres and in line of sight of the drive's radio, for example inside the cabinet. A plastic (PLA/PETG) OpenSCAD enclosure is fine; no metal lids or foil near the antenna. RF24_PA_LOW was enough in the Port-Net example ('blum.begin(RF24_PA_LOW);')."
+  },
+  {
+   "claim": "No rolling code or cryptographic authentication is visible. Pairing is plain ID whitelisting and sequence numbers are not checked, so injecting or replaying commands with an nRF24 is feasible.",
+   "confidence": "medium",
+   "evidence": "bluhm-de: 'XX YY is a sequence number which changes for every submission. It does not seem to be validated.' and 'The cupboard receiver stores the switch's ID to identify a valid switch on future transmissions.' Port-Net generates its own counter ('_sequence = 1;' ... 'payload->data[7] = _sequence++;') and its own ID (default 'BlumServoDrive(RF24* radio, uint32_t id = 0xBAABCE)'). The 9-14 byte frames carry ID, type, sequence and peer-ID fields with no room for a cryptographic tag.",
+   "sources": [
+    "https://www.bluhm-de.com/content/os-tools/en/projects/home-information-system/blum-servodrive-wireless-protocol-deciphered.html",
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/src/blum_servo_drive.cpp"
+   ],
+   "design_impact": "There is no need for SDR replay (HackRF TX). The ESP32 can build frames itself through the nRF24. Pairing properly as a peer is still more robust than raw replay. Pressing 'Reset Wireless' on the drive wipes all pairings, including ours, so the firmware should offer a re-pair routine."
+  },
+  {
+   "claim": "Prior art exists beyond daumemo, refuting the scout's lead. An ESP32 plus nRF24L01+ library emulates a 'synchronised drive' and offers explicit OPEN/CLOSE commands and events, which matches the owner's use case.",
+   "confidence": "medium",
+   "evidence": "github.com/Port-Net/BlumServoDrive (Christian Port, v0.3.0, 'license': 'LGPL-3.0', created 2024-12-27, last push 2025-01-10). library.json: 'platforms': ['espressif32'], dependency 'nrf24/RF24 ^1.4.9'. Header: 'enum event_t {SYNC_END, SYNC_IDENTIFY, OPEN, CLOSE, NEWPEER, UNLINK};' and 'bool sendMove(uint idx, bool open);'. Message types on channel 4: 0x25 wake, 0x26 move/position, 0x27 sync identify, 0x42 reset, 0xA5 ack, 0x23 power-on. Channel 10 discover 0x02 / 0x82. Send path: 'if(_requested_open) { sendPayload.data[12] = 0x10; }' with the template commented '// template set to close' (0x01). Receive path: '_event_callback(recPayload.data[12] == 01 ? OPEN : CLOSE, ...)', which contradicts the send-path encoding and needs testing. bluhm-de sells a sketch for 25 EUR and gives addresses and channels for a donation of at least 15 EUR. MA-502/3: 'Up to three drive units can be synchronised allowing them to move simultaneously.' No code license is stated on bluhm-de; the page's HTTP Last-Modified header is 26 Jun 2026.",
+   "sources": [
+    "https://github.com/Port-Net/BlumServoDrive",
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/library.json",
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/src/blum_servo_drive.h",
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/examples/basic/basic_controller.cpp",
+    "https://www.bluhm-de.com/content/os-tools/en/projects/home-information-system/blum-servodrive-wireless-protocol-deciphered.html",
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf"
+   ],
+   "design_impact": "Most direct design: ESP32 plus nRF24L01+ paired through the drive's SYNC button. On an OPEN event (any trigger), start a 5-minute timer, then send an explicit close with sendMove(idx, false). This avoids toggle ambiguity and the soldered switch hack. Caveats: it uses one of at most 3 sync slots, the 0x01/0x10 meaning must be confirmed on hardware, and a reed sensor is still a cheap ground-truth backup. Cross-link: the protocol/prior-art angle should test this library, and the LGPL-3.0 licence affects reuse."
+  },
+  {
+   "claim": "The ESP32's built-in radio (Wi-Fi/BLE; 802.15.4 on C6/H2) cannot speak Nordic Enhanced ShockBurst, so an external radio is needed. The proven companion is an nRF24L01+ on SPI; an nRF52840 dongle or a HackRF are for discovery and verification only.",
+   "confidence": "medium",
+   "evidence": "Port-Net puts an external nRF24L01+ on the ESP32's SPI bus ('RF24 radio(CE, CSN); ... SPI.begin(SCK, MISO, MOSI); ... radio.begin(&SPI)'). Enhanced ShockBurst frames (5-byte address, Nordic packet control field, CRC) differ from BLE packet framing, and ESP-IDF offers no raw 2.4 GHz GFSK mode (my inference; no Espressif document opened). Known capture technique for unknown nRF24 addresses: Goodspeed's nRF24 promiscuous mode (seen in a Hackaday search result, not opened).",
+   "sources": [
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/examples/basic/basic_controller.cpp",
+    "https://hackaday.com/2016/06/28/reverse-engineering-quadcopter-protocols/",
+    "https://www.sparkfun.com/datasheets/Components/SMD/nRF24L01Pluss_Preliminary_Product_Specification_v1_0.pdf"
+   ],
+   "design_impact": "Parts list: ESP32 dev board, nRF24L01+ module with PCB antenna (no PA/LNA), and a 10-100 µF capacitor at the module's 3.3 V supply. Wiring: SPI plus CE, CSN and optionally IRQ. Lab tools: a second nRF24 or an nRF52840 dongle for sniffing, optionally HackRF with Universal Radio Hacker to confirm channels and rate. The enclosure needs a slot for the module antenna, away from the ESP32's own antenna."
+  },
+  {
+   "claim": "Other markets: SERVO-DRIVE carries approvals in many countries, so more national filings exist. ISED Canada lists IC 8352A-23P502L00, but its database sits behind reCAPTCHA. Blum's compliance page shows no UK declaration (UKCA) for SERVO-DRIVE.",
+   "confidence": "medium",
+   "evidence": "Blum FL-774/1 'Market-Specific Product Approvals (SERVO-DRIVE | AMPEROS AC | MINIPRESS top | MINIPRESS P | EASYSTICK)', Version 09.2026, ticks SERVO-DRIVE for USA, CAN, BRA, JPN, KOR, TWN, MEX, CHN, IND, GBR, AUS, ZAF and others; PAN, PER and VEN are not ticked. ISED REL search form (sms-sgs.ic.gc.ca) contains 'Please pass reCaptcha validation' and a 'g-recaptcha-response' check. IC number from a search snippet: 'W95-23P502L00 and IC: 8352A-23P502L00'. Blum DE compliance page: UK-Konformitätserklärungen only for BOXPRESS, LEGRAPRESS, MINIPRESS, EASYSTICK and similar; the only SERVO-DRIVE entry is the EU DoC for the HK top drive. The downloads page lists only EU DoCs for SERVO-DRIVE.",
+   "sources": [
+    "https://www.blum.com/file/cme248593_fl_dok_bau?country=de&language=de",
+    "https://sms-sgs.ic.gc.ca/equipmentSearch/searchRadioEquipments?execution=e1s1&lang=en",
+    "https://electric.garden/julius-blum-gmbh-w95/radio-switch-23p502l00",
+    "https://www.blum.com/de/de/landingpages/produkte/konformitaetserklaerung/",
+    "https://www.blum.com/de/de/produkte/bewegungstechnologien/servo-drive/servo-drive-aventos/downloads-videos/"
+   ],
+   "design_impact": "Records from ANATEL (Brazil), MIC (Japan), NCC (Taiwan) and KC (Korea) could carry internal photos or emission data if the FCC photos stay out of reach. No further action is needed if the owner can photograph the PCB."
+  }
+ ],
+ "negative_results": [
+  "The official FCC database (apps.fcc.gov/oetcf/eas GenericSearchResult, grantee W95) returned HTTP 403 with Akamai 'Access Denied' to both WebFetch and curl. Not circumvented.",
+  "fccid.io (W95 and every W95-* page), fcc.report, device.report, electric.garden and usermanual.wiki all returned HTTP 403 to WebFetch and curl. fcc.io is a GitHub Pages redirector (404 to curl) and fcc.id 302-redirects to fccid.io. No grant notice, test report, internal photo, block diagram or schematic PDF could be opened. Every FCC detail above comes from search snippets.",
+  "Archived copies of several W95 exhibits exist in the Wayback Machine. The CDX index lists, among others, fcc.report/FCC-ID/W95-21P5020/1218569.pdf, W95-23P502L00-01/5498497.pdf, 5513834.pdf, 5513835.pdf, w9523p502l00/4439975.pdf, 4439979.pdf, W95-23A001/6175482.pdf and fccid.io/W95-23P502L00/External-Photos/Ext-Photos-4439974.pdf. The harness denied downloading them as bot-check circumvention, so their contents are unknown.",
+  "ISED REL (sms-sgs.ic.gc.ca) requires reCAPTCHA; not queried. The ISED company number 8352A comes only from a snippet.",
+  "Japan MIC Giteki (tele.soumu.go.jp) returned 403 to WebFetch; not pursued.",
+  "EN 300 328 does not appear in any of the 5 Blum DoCs examined (23P5020 switch, 23.A000/A001, 23KA000/001, 21FA00x.21/.22, the 2016 MA-502 DoC), and EN 300 220 (sub-GHz) appears nowhere.",
+  "Blum's DE and AT compliance landing pages list no UK (UKCA) declaration for any SERVO-DRIVE product.",
+  "No Nordic Semiconductor (or TI/Silicon Labs) case study or press item naming Blum SERVO-DRIVE was found.",
+  "No teardown with a legible RF chip marking was found. daumemo's photos (2000x1125) show the 23P502L00.01 component side, but the QFN marking cannot be read even after a 4x crop.",
+  "No public text names the RF chip in the FCC records; the snippet labels W95-23P502L00's 'Operational Description RF Chip' as confidential.",
+  "German-forum search (mikrocontroller.net, FHEM, KNX-user-forum) with Blum Servo-Drive / Funkschalter / Platine / nRF24 / CC2500 terms found nothing relevant, only retailer pages.",
+  "GitHub repository search (blum servo drive, blum aventos, blum nrf24) found only Port-Net/BlumServoDrive (radio) and pierreallier/Pilotage_ServoDrive_Blum, which drives the motor directly via H-bridge, encoder and PID with no Blum radio code, plus the owner's own repo.",
+  "The web search budget for this turn (200 calls, shared by all agents) ran out before I could search ANATEL, NCC, KC or more FCC snippet text (W95-23A00L83 internal photos)."
+ ],
+ "open_questions": [
+  "Exact RF IC on PCB 23P502L00 and module 23.A00L83: an nRF24L01+ plus separate MCU, an nRF24LE1, or an nRF5x running ESB? This needs the FCC internal photos (W95-23P502L00 photos 1.54 MiB from 2019-11-09, the W95-23P502L00-01 set released 2022-04-18, W95-23A00L83, W95-23A001) or a macro photo.",
+  "What is 2452 MHz (nRF24 channel 52) used for: switch programming/configuration (perhaps the commented 'BLUMT' address 0x544D554C42) or switch button traffic? Port-Net only uses channels 4 and 10; bluhm-de keeps channels paywalled.",
+  "Which channel and pipe carry switch-to-drive button frames ('ba MM NN ff 01 20 XX YY dd' sent to address DD+reversed ID+01)? This decides whether the ESP32 can passively catch the physical switch press as well as sync notifications.",
+  "What does byte 12 mean (0x01 vs 0x10)? Port-Net's send path uses 0x10 = open and 0x01 = close, but its receive path maps 0x01 to OPEN.",
+  "On-air CRC length: Port-Net calls disableCRC(), but the datasheet says EN_CRC is forced on while auto-ACK is enabled. RF24's default CRC length (likely 16-bit) is assumed, not confirmed.",
+  "Does the 2009 gen-1 hardware (PCB 21P502L00, module 21.A00L33, FCC range 2403-2477 MHz) use the same channels and frame format as gen 2?",
+  "Does the HF/HS/HL top drive 23A001 (Part 15.249 DXX) use the same radio and protocol as the 23.A00L83 DTS module in HK top / 21xA drives? Blum's one shared spec and switch suggest yes, but this is unverified.",
+  "What exactly is the '1050 kHz' figure in the device.report listing (99% occupied bandwidth? 6 dB bandwidth?), and what emission designator does the grant list (not visible in snippets)?",
+  "Is Blum's '+4 dBm / 2.5 mW' a conducted or an EIRP figure?",
+  "Do ANATEL, MIC, NCC or KC records for SERVO-DRIVE publish internal photos or emission data?"
+ ],
+ "questions_for_user": [
+  "What is printed on the drive unit's label: article number (for example 21FA000.22, 23.A000/23.A001 or 23KA000/23KA001), any FCC ID / IC number (W95-..., 8352A-...), and the production date? Which AVENTOS type is it (HK top, HF top, HS top, HL top, HK-S, HK-XS)?",
+  "Is your switch an article 23P5020 or 21P5020? If you open it, what does the PCB silkscreen say (21P502L00 vs 23P502L00.00/.01)? Please also take a sharp, well-lit macro photo of the small square chip and the 2x3 gold pads.",
+  "Where was the cabinet bought and installed (EU, UK, US/Canada, other)? This decides which certification and power limits apply.",
+  "Is the drive already synchronised with other drives, or is collision avoidance enabled? An ESP32 'virtual drive' uses one of the at most 3 sync slots.",
+  "Are you OK with pairing the ESP32 to the drive through its SYNC button (the Port-Net approach), or do you want a purely passive listener that never registers with the drive?",
+  "Which 2.4 GHz channel does your home Wi-Fi use? Channel 1 overlaps Blum's 2404/2410 MHz; channel 6 avoids all three Blum channels.",
+  "Do you already own an nRF24L01+ module, an nRF52840 dongle, or a HackRF/other 2.4 GHz SDR?",
+  "Would you pay the bluhm-de author (at least 15 EUR for addresses and channels, 25 EUR for the sketch), or would you rather rely on the open LGPL Port-Net library?"
+ ]
+}

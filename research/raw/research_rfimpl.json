@@ -1,0 +1,401 @@
+{
+ "angle": "RF implementation options for the owner's own Blum SERVO-DRIVE radio link. Covers a full read of Port-Net/BlumServoDrive (API, pairing, frames, timing, defects, hardware), a comparison with the free part of bluhm-de.com, nRF24L01+ module and clone selection, wiring to a XIAO ESP32-C3/C6, toolchain versions, ESPHome feasibility, the nRF52840 single-chip alternative (NCS ESB and nrf_to_nrf), verification tooling, generation and legal risks, and EU prices as of Nov 2026.",
+ "summary": "Port-Net/BlumServoDrive (v0.3.0, 15 commits by Christian Port from 2024-12-27 to 2025-01-10, a 2-line README, 0 issues/forks/stars) makes an ESP32 plus an nRF24L01+ (RF24 library) act as a virtual synchronised SERVO-DRIVE unit. It pairs through the drive's own synchronisation function: channel 10 (2410 MHz), sync address 0x534D554C42, which reads 'BLUMS' in LSByte-first register order. It then runs on channel 4 (2404 MHz) at 1 Mbps with 5-byte addresses built as 0xDD + byte-reversed 3-byte device ID + a pipe byte (01 = switch pipe, 02 = sync pipe). It uses dynamic payloads, auto-ACK and ACK payloads; CRC is forced on even though the code calls disableCRC().\n\nThe library receives the drive's relayed 0x25 (wake) and 0x26 (move) frames as OPEN/CLOSE callbacks. It can also send an absolute move: 0x25, then 0x26 with byte 12 = 0x01 or 0x10. For 'catch OPEN, close after 5 minutes' this is better than emulating the switch, because the switch only sends a toggle. Blum's manuals support the relay assumption: a switch is assigned to only one drive, yet up to three synchronised drives 'move simultaneously'.\n\nThe frame layout, the address construction, the 0x27/0x42 frames and the unvalidated sequence number all agree with bluhm-de.com. The channels and addresses that bluhm keeps behind a paywall can be read in Port-Net's code: ch 4, ch 10, BLUMS, and an unused, commented-out 'BLUMT' address.\n\nCaveats:\n- The open/close mapping contradicts itself: transmit uses open = 0x10, but receive maps 0x01 to OPEN.\n- The code is not thread-safe, has several small bugs and gives no failure callback.\n- Its naming matches the classic drive buttons (<SWITCH>/<SYNC>/<COLL>/<Reset Wireless>). The 'top' generation uses <Link>/<Ok>/<Play> and is untested.\n\nThe example's pins match a Seeed XIAO ESP32-C6 exactly. A XIAO ESP32-C3 needs different pins and a pull-up on CSN, because its MISO pin (GPIO9) is also the BOOT strapping pin.\n\nPrefer genuine Nordic nRF24L01+ modules. Si24R1 clones invert the NO_ACK bit when dynamic payloads are enabled, and this protocol needs them. BK242x/RFM7x chips need special initialisation, and XN297 is not compatible over the air. A XIAO nRF52840 is a viable single-chip alternative with a genuine Nordic radio but no Wi-Fi. Because Blum uses 1 Mbps, the missing 250 kbps mode does not matter.\n\nFor verification: the RF24 scanner, an nRF24 tuned to the computed drive address (it will also send ACKs when dynamic payloads are on), or an nRF52840 Dongle in NCS ESB monitor mode. A 2.4 GHz SDR with URH is optional; RTL-SDR dongles stop at about 1.77 GHz.\n\nLegal limits: in the EU, 10 mW e.i.r.p. under ERC/REC 70-03 Annex 1 band i; in the US, 50 mV/m at 3 m under 15.249. A plain module at PA_LOW is fine; PA+LNA modules must be turned down.\n\nPrices: XIAO ESP32-C3 $4.90 (about 6-7 EUR in the EU), XIAO ESP32-C6 $5.20, XIAO nRF52840 $9.90, nRF52840 Dongle 9.78 EUR before VAT, a 3-pack of nRF24L01 modules about 7.99 EUR.",
+ "findings": [
+  {
+   "claim": "github.com/Port-Net/BlumServoDrive contains only 7 files: LICENSE, README.md, library.json, library.properties, src/blum_servo_drive.h, src/blum_servo_drive.cpp and examples/basic/basic_controller.cpp. It has 15 commits by Christian Port from 2024-12-27 to 2025-01-10 (HEAD 3af57f6), version 0.3.0, 0 stars, 0 forks and 0 open issues. Nothing documents the hardware, the drive generation or the pairing steps. The license metadata conflicts: the LICENSE file is GPL-2.0, library.json says LGPL-3.0.",
+   "confidence": "high",
+   "evidence": "Git tree API (truncated:false) lists exactly those 7 blobs. Commits API: af32c1d 2024-12-27 'first commit', 9eff5b1 'changed int to uint', f106afc 'added NEWPEER event', 3af57f6 2025-01-10 'changed pers to ptr'; the other 11 messages are '.'. Repo API: created_at 2024-12-27T14:50:42Z, pushed_at 2025-01-10T13:54:45Z, stargazers_count 0, forks_count 0, open_issues_count 0, license gpl-2.0. LICENSE begins 'GNU GENERAL PUBLIC LICENSE Version 2, June 1991'. library.json: '\"version\": \"0.3.0\"', '\"license\": \"LGPL-3.0\"', '\"platforms\": [\"espressif32\"]', dependency nrf24/RF24 '^1.4.9'. README.md (79 bytes): 'Blum ServoDrive Library / allow control of shelf equipped with blum servo drive.' library.properties: 'sentence=Controller for Blum ServoDrive', 'url=' (empty), 'architectures=*'. The earlier agents' local copies have the same md5 as the raw files downloaded on 2026-11-05.",
+   "sources": [
+    "https://api.github.com/repos/Port-Net/BlumServoDrive",
+    "https://api.github.com/repos/Port-Net/BlumServoDrive/git/trees/HEAD?recursive=1",
+    "https://api.github.com/repos/Port-Net/BlumServoDrive/commits?per_page=100",
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/README.md",
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/library.json",
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/library.properties",
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/LICENSE"
+   ],
+   "design_impact": "Treat it as a small, single-author reference implementation with no commits since January 2025. Vendor the two source files at commit 3af57f6 and expect to patch them. The code is GPL-2.0 per its LICENSE file and RF24 is GPL-2.0, so the owner's public repository needs a GPL-2.0-compatible license if it publishes derived firmware."
+  },
+  {
+   "claim": "The public API is in src/blum_servo_drive.h. Constructor: BlumServoDrive(RF24* radio, uint32_t id = 0xBAABCE). Methods: begin(uint8_t level = RF24_PA_MAX), startSync(), sendMove(uint idx, bool open), toggleState(uint idx), sendSyncIdentify(uint idx), removePeerIdx(uint idx), getPeerCount(), findPeerIdx(), getPeerID(), getPeerName()/setPeerName(), getPeerState(), getState(), storeConfig()/loadConfig(), and setCallback(void (*)(event_t, int peer_idx)). Events: enum event_t {SYNC_END, SYNC_IDENTIFY, OPEN, CLOSE, NEWPEER, UNLINK}. Paired peers are stored in ESP32 NVS (Preferences namespace 'config'), and the radio runs in its own FreeRTOS task.",
+   "confidence": "high",
+   "evidence": "Header: 'enum event_t {SYNC_END, SYNC_IDENTIFY, OPEN, CLOSE, NEWPEER, UNLINK};', 'BlumServoDrive(RF24* radio, uint32_t id = 0xBAABCE);', 'bool sendMove(uint idx, bool open);', 'bool startSync();', 'void setCallback(void (*callback)(event_t event, int peer_idx));'. cpp: '#include <Preferences.h>', 'prefs.begin(\"config\")', keys 'PeerIDs', 'PeerStates', 'name_%04X'. begin() calls loadConfig() and then 'xTaskCreatePinnedToCore(this->radioLoopTask, \"BlumLoop\", 4000, (void*)this, 5, &_loophandle, ARDUINO_RUNNING_CORE);'. Example: 'RF24 radio(CE, CSN); BlumServoDrive blum(&radio);', 'blum.begin(RF24_PA_LOW);'. Button handling in the example: release after more than 2000 ms calls startSync(), after more than 1000 ms calls sendSyncIdentify(0), otherwise toggleState(0).",
+   "sources": [
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/src/blum_servo_drive.h",
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/src/blum_servo_drive.cpp",
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/examples/basic/basic_controller.cpp"
+   ],
+   "design_impact": "The owner's firmware needs very little: RF24 plus BlumServoDrive with a unique ID, begin(RF24_PA_LOW), startSync() once from a button, then a callback that starts a 5-minute timer on a drive-originated OPEN and calls sendMove(0,false) when it expires. The ESP32-only dependencies (FreeRTOS task, Preferences, xTaskCreatePinnedToCore) mean the code must be ported for nRF52."
+  },
+  {
+   "claim": "The radio settings the library uses for the Blum link are: 1 Mbps, 5-byte addresses (RF24 default), dynamic payload length, auto-ACK on all pipes (RF24 default) with ACK payloads, operating channel 4 (2404 MHz) and sync-discovery channel 10 (2410 MHz). begin() calls disableCRC(), but on the nRF24L01+ CRC is forced on whenever auto-ACK is enabled on any pipe, so RF24's default 16-bit CRC stays in effect.",
+   "confidence": "high",
+   "evidence": "begin(): '_radio->setDataRate(RF24_1MBPS); _radio->enableDynamicPayloads(); _radio->disableCRC(); _radio->enableAckPayload(); _radio->stopListening(); _radio->setChannel(4); ... _radio->closeReadingPipe(0); _radio->openReadingPipe(1, addressFromID(_id, 1)); _radio->openReadingPipe(2, 0x02);'. startSync(): '_radio->setChannel(10); _radio->openReadingPipe(0, sync_cfg_addr);'. RF24 _init_radio(): 'write_register(nRF24L01::EN_AA, 0x3F);  // enable auto-ack on all pipes', 'setAddressWidth(5);', and the CONFIG comment '16-bit CRC (CRC required by auto-ack)'. Nordic nRF24L01+ PS v1.0, CONFIG register: 'EN_CRC ... Enable CRC. Forced high if one of the bits in the EN_AA is high'; 'CRCO ... 1 - 2 bytes'; 'F0= 2400 + RF_CH [MHz]'. RF24 COMMON_ISSUES: 'RF24::setCRCLength() or RF24::disableCRC() (the auto-ack feature automatically enables CRC because it is required)'.",
+   "sources": [
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/src/blum_servo_drive.cpp",
+    "https://raw.githubusercontent.com/nRF24/RF24/master/RF24.cpp",
+    "https://raw.githubusercontent.com/nRF24/RF24/master/COMMON_ISSUES.md",
+    "C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/nordic/nrf24l01p_ps.pdf (Nordic nRF24L01+ Product Specification v1.0; public copy https://cdn.sparkfun.com/assets/3/d/8/5/1/nRF24L01P_Product_Specification_1_0.pdf)"
+   ],
+   "design_impact": "Any replacement radio stack (raw nRF24 driver, an ESPHome nrf24 component, nrf_to_nrf or NCS ESB) must be set to 1 Mbps, 5-byte addresses, dynamic payloads, auto-ACK, ACK payloads, CRC-16, and channels 4 and 10. A driver limited to fixed 32-byte payloads or without ACK-payload support will not work."
+  },
+  {
+   "claim": "Addresses are derived from 3-byte device IDs. addressFromID(id, idx) = 0xDD, then the ID bytes in reverse order, then a pipe byte. The library listens on its own ID with suffix 01 (pipe 1) and 02 (pipe 2) and sends to peers at suffix 02. In RF24's LSByte-first register order the address is {idx, ID0, ID1, ID2, 0xDD}. The sync-discovery address 0x534D554C42 reads 'B','L','U','M','S' in that order. A commented-out switch_cfg_addr 0x544D554C42 reads 'BLUMT' (plausibly 'Taster', German for push-button, i.e. a switch-configuration address) and is never used.",
+   "confidence": "high",
+   "evidence": "'uint64_t BlumServoDrive::addressFromID(uint32_t id, unsigned char idx) { // 0xDD LL NN MM 0X  return 0xdd00000000LL | ((uint64_t)(id & 0xFF)<<24) | ((uint64_t)((id >> 8) & 0xFF)<<16) | ((uint64_t)((id >> 16) & 0xFF)<<8) | (uint64_t)idx;'. Header: 'uint64_t sync_cfg_addr = 0x534D554C42LL;' and '//uint64_t switch_cfg_addr = 0x544D554C42LL;'. sendPacket(): 'address = addressFromID(peerID, pipe);', where pipe defaults to 2. Nordic PS: 'Data pipes 1-5 share the four most significant address bytes. The LSByte must be unique for all six pipes.' bluhm-de.com: 'The receiver's ID is reversed and stored in the switch to be used as transmission address 01 (i.e. ddNNMMba01)'. Reading the two constants as ASCII is my own decoding.",
+   "sources": [
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/src/blum_servo_drive.h",
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/src/blum_servo_drive.cpp",
+    "https://www.bluhm-de.com/content/os-tools/en/projects/home-information-system/blum-servodrive-wireless-protocol-deciphered.html",
+    "C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/nordic/ps.txt"
+   ],
+   "design_impact": "Once the drive's 3-byte ID is known (it is learned during sync), its switch pipe (suffix 01) and sync pipe (suffix 02) addresses can be computed without promiscuous sniffing. One nRF24 can listen on its own pipes 1 and 2 at the same time; listening on the real drive's address needs the independent pipe 0. When porting to nrf_to_nrf or NCS ESB, map the pipe byte (01/02) to the ESB prefix and the other 4 bytes to the base address."
+  },
+  {
+   "claim": "Port-Net's payloads are 12-14 bytes with this layout: [0..2] sender ID, [3] 0x00 (0x02 in the sync-ack), [4] 0x01, [5] frame type, [6] 0x00, [7] 8-bit sequence number, [8] 0xDD, [9..11] receiver ID, [12] parameter. Frame types:\n- 0x25 activation/wake\n- 0x26 position/move: byte 12 = 0x01 in the template (commented 'set to close'), 0x10 written for open\n- 0x27 sync button/identify: byte 12 = device type 0x94\n- 0x03 sync-ack: 14 bytes, byte 13 = 0x94\n- 0x42 reset/unlink\n- 0xA5 generic ack (= 0x25|0x80)\n- 0x23 power-on (defined, unused)\n- 0x02 discover / 0x82 discover-ack on channel 10\nResponses set bit 7: 0x02 becomes 0x82 here, and bluhm reports 0x01 becoming 0x81.",
+   "confidence": "high",
+   "evidence": "Header templates, with the comment row 'MyID____ ... seq_ ... PeerID__ ??':\n- 'ch4_ack[13] = {0x00, 0x00, 0x00, 0x00, 0x01, 0xA5, 0x00, 0x91, 0xdd, 0x00, 0x00, 0x00, 0x01}'\n- 'ch4_power_on[13] = {..., 0x01, 0x23, 0x00, 0xCE, 0xDD, 0xFC, 0x72, 0x42, 0x6C}'\n- 'ch4_activation_cmd[13] = {..., 0x01, 0x25, 0x00, 0x91, 0xdd, 0x00, 0x00, 0x00, 0x00}'\n- 'ch4_position_cmd[13] = {..., 0x01, 0x26, 0x00, 0x91, 0xdd, 0x00, 0x00, 0x00, 0x01}; // template set to close'\n- 'ch4_sync_ack[14] = {0x00, 0x00, 0x00, 0x02, 0x01, 0x03, 0x00, 0x91, 0xdd, 0x00, 0x00, 0x00, 0x01, 0x93}'\n- 'ch10_discover[12] = {0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x00, 0x21, 0xdd, 0x02, 0x01, 0xe7}'\npreparePayload(): 'payload->data[0] = (_id >> 16) & 0xFF; ... payload->data[7] = _sequence++; if(payload->len > 12) { payload->data[9] = (peerID >> 16) & 0XFF; ...'. sendMovePos(): 'if(_requested_open) { sendPayload.data[12] = 0x10; }'. Constructor: '_devID = 0x94;'. bluhm: 'ba MM NN ff 01 01 00 YY dd' answered by 'ba MM NN 01 01 81 00 YY dd'.",
+   "sources": [
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/src/blum_servo_drive.h",
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/src/blum_servo_drive.cpp",
+    "https://www.bluhm-de.com/content/os-tools/en/projects/home-information-system/blum-servodrive-wireless-protocol-deciphered.html"
+   ],
+   "design_impact": "Because an absolute position command (0x26) exists, the auto-close can send an idempotent 'close' rather than a toggle; confirm that a close sent to an already-closed flap is harmless. Build frames from the same templates. Keep a 3-byte own ID with the 0xBA prefix (Port-Net's default is 0xBAABCE) but make it unique per device, for example derived from the MAC address."
+  },
+  {
+   "claim": "startSync() makes the ESP32 behave like a second drive joining a synchronisation:\n1. It switches to channel 10, opens pipe 0 on 'BLUMS' with a pre-loaded 0x82 ACK payload, and sends a 0x02 discover to 'BLUMS' every 500 ms (5 attempts).\n2. If the drive replies with an ACK payload whose byte 5 is 0x82, the drive's ID (bytes 0..2 of that payload) is stored as a peer, and the library sends a 0x03 sync-ack (and possibly 0x27) to the drive's pipe 02 on channel 4.\n3. Otherwise it waits for the drive's own discover on channel 10, takes the ID from it, switches to channel 4 and sends the sync-ack.\nAny pairing state times out after 20 s (SYNC_END with index -1). Peers persist in NVS.",
+   "confidence": "high",
+   "evidence": "startSync(): '_radio->setChannel(10); _radio->openReadingPipe(0, sync_cfg_addr); _state = BLUM_SYNC; _retries = 5; setAutoAckPayload(BLUM_C10_DISCOVER_ACK, 0, 0);'. BLUM_SYNC: 'if((ack_payload.len > 11) && (ack_payload.data[5] == 0x82)) { ... uint32_t peerID = (uint32_t)ack_payload.data[0]<<16 | (uint32_t)ack_payload.data[1]<<8 | ack_payload.data[2]; addPeer(peerID); _state = BLUM_SYNC_SEND_ACK;' and 'Serialprintln(F(\"got no ack, wait for discover on ch10\")); setAutoAckPayload(BLUM_C10_DISCOVER_ACK, 0, 0); _state = BLUM_SYNC_WAIT_DISCOVER;'. handleDiscover(): '_currentPeerID = (uint32_t)recPayload.data[0]<<16 | ...; ... _radio->setChannel(4);'. sendSynAck(): 'sendPacket(BLUM_C4_SYNC_ACK, ackPayload, _currentPeerID, 2)'. '#define SYNC_WAIT_TIMEOUT 20000'. Example: 'if(button.previousDuration() > 2000) { LED_ON; blum.startSync(); }'.",
+   "sources": [
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/src/blum_servo_drive.cpp",
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/examples/basic/basic_controller.cpp"
+   ],
+   "design_impact": "The device needs a local pairing trigger (a button or an HA button entity), and the owner needs physical access to the drive's sync button once. Both sides must be in sync mode within the 20 s window. The drive's ID is learned automatically, so the sync-partner approach needs no address-discovery tools."
+  },
+  {
+   "claim": "Classic SERVO-DRIVE for AVENTOS drives have the buttons <Reset Motion>, <SWITCH>, <SYNC>, <COLL> and <Reset Wireless>. The switch must be activated first; then <SYNC> is pressed on the first drive until its LED flashes green, and on the second until both LEDs are green; then a reference run follows. At most 3 drive units can be synchronised. The 'top' generation (AVENTOS HK top, 2021 doc) has <Reset>, <Collision>, <Play>, <Ok> and <Link>; synchronising means Link on both units, confirm with the flashing Ok, then Play. 'Connect' is an LED on the radio switch, not a drive button. Port-Net's naming (BLUM_C4_SYNC_BUTTON, 'Sync Status requested', reset) matches the classic layout; the repo never says which generation was tested.",
+   "confidence": "high",
+   "evidence": "MA-502 SERVO-DRIVE installation instructions: 'Button layout ... 2 <Reset Motion> button 3 Motion LED 4 <SWITCH> button 5 <SYNC> button 6 <COLL> button 7 <Reset Wireless> button 8 Wireless LED'; 'A switch can only be assigned to one drive unit.'; 'C Activating synchronisation Up to three drive units can be synchronised allowing them to move simultaneously. This function is required for several cabinets with a uniform front. 1 Activating the SERVO-DRIVE switch see A 1-3. 2 Press the <SYNC> button for the first drive unit until the LED flashes green. 3 Press the <SYNC> button for the second drive unit unit the LEDs of both synchronised drive units light up green. ... 5 Carry out reference run'. SERVO-DRIVE uno (MA-707D): 'F Reset Wireless Deactivates all functions: all activated SERVO-DRIVE switches of the respective drive unit are deactivated. Press the <Reset Wireless> button using a pen (for at least 3 seconds)'. AVENTOS HK top technical (2021): '2 <Reset> button 3 LED 4 <Collision> button 5 <Play> button 6 <Ok> button 7 <Link> button'; '1 Press link button on first drive unit. ... 3 Press link button on second drive unit. ... 4 Confirm link by pressing flashing ok button. ... 6 Press flashing play button to start reference run and complete synchronization.'; 'NOTE: A switch can only be synchronized to one drive unit'; 'Up to 6 switches can be programmed to a single drive unit'. BA-139: '1 Battery display (LED) ... 2 Connect (LED)'.",
+   "sources": [
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf",
+    "https://d2.blum.com/services/BEC003/aventoshktoptech_ep_dok_bus_$sen-us_$aof_$v5.pdf",
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sen_$aof_$v7.pdf",
+    "C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/ops_elec/blum_doc2/uno_aventos_ma.pdf"
+   ],
+   "design_impact": "Identify the drive generation from its button layout and label before buying hardware. With the classic layout, the Port-Net flow should apply (press <SYNC> on the real drive, then start sync on the ESP32), and the ESP32 uses one of the 3 sync slots. With the top layout (<Link>/<Ok>), applicability is unknown; plan a capture/verification step first. 'Reset Wireless' is the recovery path, but it also unpairs the original switch, which then has to be re-activated with procedure A."
+  },
+  {
+   "claim": "A synchronised partner is told about moves. The library's ACTIVE-state handler accepts 0x25 ('Sync Move wake received') and 0x26 ('Sync Move requested from ... to: data[12]') from peers and fires OPEN/CLOSE callbacks. Blum's manuals imply relaying: a switch is assigned to only one drive, yet all synchronised units move simultaneously. So a virtual partner should get a radio notification for moves triggered by the switch and by a press on the front. Whether moves made by hand are broadcast is not documented. The handler also sends a 0xA5 application-level ack to the sender's pipe 02 and calls addPeer() for every received frame that is not 0xA5.",
+   "confidence": "medium",
+   "evidence": "cpp, ACTIVE state: 'uint32_t peerID = (uint32_t)recPayload.data[0]<<16 | ...; addPeer(peerID); ... bool success = sendPacket(BLUM_C4_ACK, ackPayload, peerID, 2); if (success && (recPayload.data[5] == 0x25)) { // Sync Move Wakeup ... } else if (recPayload.data[5] == 0x26) { Serialprint(F(\"Sync Move requested from: \")); ... findPeer(peerID)->setState(recPayload.data[12]); if(_event_callback) { _event_callback(recPayload.data[12] == 01 ? OPEN : CLOSE, findPeerIdx(peerID)); }'. Blum MA-502: 'A switch can only be assigned to one drive unit.' and 'Up to three drive units can be synchronised allowing them to move simultaneously.' BA-139: 'Press on the front - The lift system opens automatically'. That the drive relays switch and front-press moves to partners is my inference from these sources; not tested.",
+   "sources": [
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/src/blum_servo_drive.cpp",
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf",
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sen_$aof_$v7.pdf"
+   ],
+   "design_impact": "The sync-partner approach can catch OPEN without touching the original switch, for any trigger the drive relays. To make the 5-minute timer robust:\n1. Start or restart it only on move frames from the drive. The callback does not say who caused the move, so ignore the echo of the ESP32's own sendMove.\n2. De-duplicate repeated frames.\n3. Add a reed or hall sensor as ground truth (it also covers manual opening and missed packets).\n4. Test what the drive does when the ESP32 partner is offline."
+  },
+  {
+   "claim": "The library contradicts itself on what byte 12 means. When sending, 'open' writes 0x10 and 'close' keeps the template's 0x01 ('template set to close'); a successful send stores that byte as the peer's state and fires OPEN/CLOSE according to the request. When receiving a 0x26 frame, 0x01 is mapped to OPEN. toggleState() opens when the stored state is 0x01, closes when it is 0x10, and does nothing while the state is still 0 (unknown after pairing). Either the receive label or the send parameter is inverted. Toggling works physically under both readings, which may be why the author did not notice.",
+   "confidence": "high",
+   "evidence": "sendMovePos(): 'if(_requested_open) { sendPayload.data[12] = 0x10; } bool success = sendPacket(...); if(success) { findPeer(_currentPeerID)->setState(sendPayload.data[12]); }'. BLUM_MOVE_WAIT_ACK: '_event_callback(_requested_open ? OPEN : CLOSE, ...)'. Header: 'ch4_position_cmd[13] = {... 0x26 ... 0x01}; // template set to close'. Receive path: '_event_callback(recPayload.data[12] == 01 ? OPEN : CLOSE, findPeerIdx(peerID));'. toggleState(): 'if(state == 0x01) { return sendMove(idx, true); } else if(state == 0x10) { return sendMove(idx, false); } return true;'. Peer(): '_state = 0;'.",
+   "sources": [
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/src/blum_servo_drive.cpp",
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/src/blum_servo_drive.h"
+   ],
+   "design_impact": "Do not trust the OPEN/CLOSE labels. Log the raw byte 12 of drive-originated 0x26 frames while opening and closing with the original switch and with a front press, then fix the mapping in a fork. Until that is calibrated, require the reed sensor to report 'flap open' before the auto-close runs, rather than relying on the event label."
+  },
+  {
+   "claim": "Sequence numbers: one 8-bit counter, reset to 1 at every begin() and incremented for every frame built (byte 7). It is not saved across reboots and incoming sequence numbers are never checked. ACK payloads: after a successful write() the library waits 1 ms and reads any ACK payload. As a receiver it pre-loads ACK payloads with writeAckPayload() (0x82 on pipe 0, sync-ack on pipe 2). RF24's stopListening() empties the TX FIFO when ACK payloads are enabled, so a pre-loaded ACK payload is lost whenever the library transmits.",
+   "confidence": "high",
+   "evidence": "'_sequence = 1;' in begin(); 'payload->data[7] = _sequence++;'. sendPacket(): 'bool success = _radio->write(sendPayload.data, sendPayload.len); if(success) { ... delay(1); ackPayload.len = _radio->getDynamicPayloadSize(); if(ackPayload.len) { _radio->read(ackPayload.data, ackPayload.len);'. setAutoAckPayload(): '_radio->stopListening(); _radio->writeAckPayload(pipe, autoAckPayload.data, autoAckPayload.len); _radio->startListening();'. RF24.cpp stopListening(): 'if (ack_payloads_enabled) { flush_tx(); }'. Nordic PS: 'An ACK packet can contain an optional payload from PRX to PTX. In order to use this feature, the Dynamic Payload Length (DPL) feature must be enabled.' bluhm: 'XX YY is a sequence number which changes for every submission. It does not seem to be validated.'",
+   "sources": [
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/src/blum_servo_drive.cpp",
+    "https://raw.githubusercontent.com/nRF24/RF24/master/RF24.cpp",
+    "https://www.bluhm-de.com/content/os-tools/en/projects/home-information-system/blum-servodrive-wireless-protocol-deciphered.html",
+    "C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/nordic/ps.txt"
+   ],
+   "design_impact": "No replay counter has to be stored: reboots reset the counter and the drive still accepts frames. That holds only for the generation that was tested; a newer drive that checks counters would break it (see the generation risk). ACK-payload support is required for pairing, which rules out radio drivers or clone chips that mishandle ACK payloads."
+  },
+  {
+   "claim": "Timing:\n- The radio task polls every 10 ms.\n- Retries are 500 ms apart: 5 attempts for wake (0x25), then 5 for move (0x26).\n- Each RF24 write() uses RF24's defaults of 15 hardware retransmits with a 1500 µs delay.\n- Any pairing state aborts after 20 s.\nA move is the wake frame first, then the 0x26 position frame about one loop later. When retries run out, the library only logs 'move retries exceeded' and returns to ACTIVE; there is no failure event.",
+   "confidence": "high",
+   "evidence": "'#define SEND_INTERVAL 500'; 'vTaskDelay(10 / portTICK_PERIOD_MS);'. BLUM_MOVE: 'if(sendPacket(BLUM_C4_ACT_REQ, ack_payload, _currentPeerID, 2)) { Serialprintln(\"move wake ack ok\"); _retries = 5; last_send -= SEND_INTERVAL; _state = BLUM_MOVE_WAIT_ACK; }' and '} else { Serialprintln(\"move retries exceeded\"); _state = BLUM_ACTIVE; }'. RF24 _init_radio(): 'setRetries(5, 15);' with the comment 'Set 1500uS (minimum for 32B payload in ESB@250KBPS) timeouts'.",
+   "sources": [
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/src/blum_servo_drive.cpp",
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/src/blum_servo_drive.h",
+    "https://raw.githubusercontent.com/nRF24/RF24/master/RF24.cpp"
+   ],
+   "design_impact": "Allow up to about 5 s for a close command. Add a watchdog in the owner's code (no CLOSE confirmation within about 6 s: retry once and/or raise an alert), and confirm with the flap sensor."
+  },
+  {
+   "claim": "Bugs to fix before relying on the library:\n1. 'if((recPayload.len = 13) && ...)' is an assignment, not a comparison.\n2. BLUM_SYNC_WAIT_DISCOVER tests the member '_pipe', which is never assigned; the local 'pipe' from available(&pipe) is ignored.\n3. getPeerID() checks bounds with '>' instead of '>='.\n4. storeConfig() calls prefs.clear() on the generic NVS namespace 'config', wiping any other keys stored there.\n5. Every received non-0xA5 frame in ACTIVE state adds its sender as a peer.\n6. startSync(), sendSyncIdentify() and removePeerIdx() use the SPI radio from the caller's task while the priority-5 'BlumLoop' task also uses it, with no mutex.\n7. The example's SPI.setFrequency(1000000) has no lasting effect, because RF24 applies SPISettings (default 10 MHz) on every transaction.",
+   "confidence": "high",
+   "evidence": "cpp: 'if((recPayload.len = 13) && (recPayload.data[5] == 0xA5))'; 'case BLUM_SYNC_WAIT_DISCOVER: if(got_packet && (_pipe == 0))' while 'if(_radio->available(&pipe))' fills the local 'uint8_t pipe;'; 'uint32_t BlumServoDrive::getPeerID(uint idx) { if(idx > _peers.size())'; storeConfig(): 'if(!prefs.begin(\"config\")) {...} prefs.clear();'; ACTIVE state: 'addPeer(peerID);' before any type check; startSync() calls '_radio->stopListening(); _radio->flush_rx(); ...' directly. RF24.cpp: '_spi->beginTransaction(SPISettings(spi_speed, MSBFIRST, SPI_MODE0));'; RF24_config.h: '#define RF24_SPI_SPEED 10000000'.",
+   "sources": [
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/src/blum_servo_drive.cpp",
+    "https://raw.githubusercontent.com/nRF24/RF24/master/RF24.cpp",
+    "https://raw.githubusercontent.com/nRF24/RF24/master/RF24_config.h"
+   ],
+   "design_impact": "Fork and patch the library. From other tasks call only sendMove() and the getters, or add a mutex or command queue in the radio task. Rename the NVS namespace. With long jumper wires, pass a lower SPI clock through the RF24 constructor, e.g. RF24 radio(CE, CSN, 4000000)."
+  },
+  {
+   "claim": "The author's hardware is not documented. The example's pins match a Seeed XIAO ESP32-C6 exactly: CSN = GPIO0 (D0), CE = GPIO1 (D1), button = GPIO9 (BOOT), active-low LED on GPIO15 (LED_BUILTIN), default SPI pins GPIO19/20/18. The first commit even hard-coded 'LED_ON digitalWrite(15, LOW)' inside the library. The code needs arduino-esp32 core 3.x: ESP32-C6 support, and std::erase_if is C++20 while core 2.0.17 compiles with -std=gnu++11. Neither the nRF24 module type nor the drive generation or firmware is stated anywhere.",
+   "confidence": "medium",
+   "evidence": "Example: '#define CSN GPIO_NUM_0', '#define CE GPIO_NUM_1', '#define BUTTON GPIO_NUM_9', '#define LED_ON digitalWrite(15, LOW)', 'SPI.begin(SCK, MISO, MOSI);'. arduino-esp32 variants/XIAO_ESP32C6/pins_arduino.h: 'static const uint8_t LED_BUILTIN = 15;', 'MOSI = 18;', 'MISO = 20;', 'SCK = 19;', 'D0 = 0;', 'D1 = 1;'. Seeed C6 wiki: user LED GPIO15, BOOT GPIO9 'Enter Boot Mode'. First commit af32c1d: '#define LED_ON digitalWrite(15, LOW)' and 'extern bool uart_avail;'. cpp: 'std::erase_if(_peers, [&peerID] (const Peer* p) {...});'. arduino-esp32 2.0.17 platform.txt: 'compiler.cpp.flags.esp32c3=... -std=gnu++11 ...'. The board identification is an inference from the pin match.",
+   "sources": [
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/examples/basic/basic_controller.cpp",
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/af32c1d/src/blum_servo_drive.cpp",
+    "https://raw.githubusercontent.com/espressif/arduino-esp32/master/variants/XIAO_ESP32C6/pins_arduino.h",
+    "https://wiki.seeedstudio.com/xiao_esp32c6_getting_started/",
+    "https://raw.githubusercontent.com/espressif/arduino-esp32/2.0.17/platform.txt"
+   ],
+   "design_impact": "The safest way to reproduce the author's setup is a XIAO ESP32-C6 ($5.20): D0 = CSN, D1 = CE, D8/D9/D10 = SCK/MISO/MOSI, BOOT as the sync button, built with arduino-esp32 3.x. Keep GPIO3 and GPIO14 (RF switch, antenna select) free on the C6. A XIAO ESP32-C3 also works, but it does not break out GPIO0/1 and its MISO pin GPIO9 is the BOOT button, so the pins must change."
+  },
+  {
+   "claim": "Library and toolchain versions in Nov 2026:\n- RF24 latest is v1.6.2 (2026-08-13). v1.5.0 moved openWritingPipe() to stopListening(txAddress); the uint64_t openReadingPipe/openWritingPipe overloads Port-Net uses are deprecated but still present. v1.6.0 includes 'Big bug fix: Disable interrupts by default', so the IRQ pin is masked unless re-enabled.\n- Port-Net's '^1.4.9' now resolves to 1.6.x. When the author worked, RF24 1.4.10 was current; 1.4.11 appeared hours after Port-Net's last commit.\n- arduino-esp32 stable is 3.3.12 (2026-09-18), with 4.0.0-RC1 as a pre-release.\n- The official PlatformIO platform-espressif32 v8.0.0 (2026-10-19) 'Added support for Arduino core v3.3.12'.",
+   "confidence": "high",
+   "evidence": "RF24 releases API: v1.6.2 2026-08-13, v1.6.1 2026-05-31, v1.6.0 2026-04-08, v1.5.0 2025-05-04, v1.4.11 2025-01-10T21:26:41Z, v1.4.10 2024-10-06. v1.5.0 notes: 'Migrate to stopListening(txAddress) from openWritingPipe()'. v1.6.0 notes: 'Big bug fix: Disable interrupts by default'. RF24.h: '@deprecated For compatibility with old code only' above 'void openReadingPipe(uint8_t number, uint64_t address);' and 'void openWritingPipe(uint64_t address);'. arduino-esp32 releases: 3.3.12 2026-09-18, 4.0.0-RC1 2026-09-23 (prerelease). platform-espressif32 v8.0.0: 'Added support for Arduino core v3.3.12'.",
+   "sources": [
+    "https://api.github.com/repos/nRF24/RF24/releases?per_page=8",
+    "https://raw.githubusercontent.com/nRF24/RF24/master/RF24.h",
+    "https://api.github.com/repos/espressif/arduino-esp32/releases?per_page=6",
+    "https://api.github.com/repos/platformio/platform-espressif32/releases?per_page=3"
+   ],
+   "design_impact": "In platformio.ini use platform = espressif32 @ 8.0.0 (or Arduino IDE with core 3.3.x). Use lib_deps = nrf24/RF24 @ 1.4.10 for a faithful first test, then try 1.6.2. With RF24 1.6.0 or later, unmask the IRQ pin explicitly if it is used."
+  },
+  {
+   "claim": "Port-Net and the free part of bluhm-de.com agree on:\n- nRF24-style ESB with ACK payloads.\n- 3-byte IDs that start with 0xBA (bluhm 'ba MM NN'; Port-Net's default own ID is 0xBAABCE).\n- Addresses built as dd + byte-reversed ID + pipe byte, with 01 as the switch-to-receiver pipe.\n- 0x27 (sync button) and 0x42 (wireless reset) frames with the same 13-byte layout, sent to the partner's 'sync address'.\n- Responses that set bit 7 of the type byte.\n- A sequence number that is not checked.\n- Separate RF channels for normal operation and for pairing.",
+   "confidence": "high",
+   "evidence": "bluhm: 'Inside the buttons are nrf24L01+ transceivers. They are working on at least three different frequencies: 1. Button communication 2. Programming 3. Syncing'; 'BA MM NN 00 01 27 00 YY DD BA UU VV 01 is sent to the sync address of the stored partner(s).'; 'BA MM NN 00 01 42 00 YY DD BA UU VV 01'; 'ba MM NN 01 01 81 00 YY dd' (ACK payload); '(i.e. ddNNMMba01)'. Port-Net: ch4_sync_button_cmd and ch4_reset templates {ID, 0x00, 0x01, 0x27/0x42, 0x00, seq, 0xdd, peer ID, ...}; addressFromID comment '0xDD LL NN MM 0X'; 'uint32_t id = 0xBAABCE'. The live bluhm page fetched on 2026-11-05 matches the copy saved locally by an earlier agent (WebFetch would only return a summary).",
+   "sources": [
+    "https://www.bluhm-de.com/content/os-tools/en/projects/home-information-system/blum-servodrive-wireless-protocol-deciphered.html",
+    "C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/bluhm/page.html",
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/src/blum_servo_drive.h"
+   ],
+   "design_impact": "Two independent sources describe the same protocol family, so Port-Net's frame templates are unlikely to be one author's artefacts. The sync-partner approach does not need bluhm's paywalled addresses and channels, because Port-Net's code contains them."
+  },
+  {
+   "claim": "Where the two sources differ:\n- bluhm documents the switch frames, which Port-Net does not implement: command 'ba MM NN ff 01 20 XX YY dd', programming request type 0x01 answered by an ACK payload of type 0x81, a 2-byte sequence XX YY, and byte 3 = 0xff.\n- bluhm's sync-button frame ends in 0x01, where Port-Net writes 0x94.\n- bluhm's 'Sync' and 'Collision' sections are empty, and its channels and addresses are withheld (15 EUR donation; 25 EUR Arduino sketch).\n- Port-Net reveals only channels 4 and 10, plus the unused 'BLUMT' address.\nBlum's declared band of 2.404-2.452 GHz equals nRF channels 4 to 52, so channel 52 (2452 MHz) is a plausible but unverified third channel, possibly for switch programming.",
+   "confidence": "medium",
+   "evidence": "bluhm: 'The switch sends the following 9 byte sequence to the cupboard receiver address 01: ba MM NN ff 01 20 XX YY dd'; 'I will not make the addresses and channels public ... please donate a coffee of at least 15 EUR'; 'a virtual switch/cabinet sketch for Ardunio that you can buy from me for 25 EUR'. BA-139 v7: 'Frequency band: ... 2.404 to 2.452 GHz', 'Maximum radio-frequency power: ... +4 dBm / 2.5 mW'; the German edition says 'Übertragungsart: bidirektional, über codierte Telegramme'. Nordic PS: 'F0= 2400 + RF_CH [MHz]'. The channel-52 idea is my inference.",
+   "sources": [
+    "https://www.bluhm-de.com/content/os-tools/en/projects/home-information-system/blum-servodrive-wireless-protocol-deciphered.html",
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sen_$aof_$v7.pdf",
+    "C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/ops_elec/blum_ma/ba139_de_clean.txt",
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/src/blum_servo_drive.h"
+   ],
+   "design_impact": "To emulate the switch, or to listen to the original switch, the switch channel(s) must first be found by measurement, for example with the RF24 scanner while pressing the switch. Budget a verification step, or buy bluhm's data. Confirm the 2452 MHz guess before relying on it."
+  },
+  {
+   "claim": "There are two radio control paths:\n(A) Virtual sync partner (Port-Net): absolute open/close commands plus move notifications from the drive, paired through the drive's SYNC.\n(B) Virtual or cloned switch: per bluhm, the switch sends a toggle-type command to the drive's pipe 01 after a programming exchange on a configuration channel. Port-Net has no code for this (switch_cfg_addr is commented out).\nPath B only knows 'toggle', so a delayed toggle could re-open a flap that someone has closed by hand.",
+   "confidence": "medium",
+   "evidence": "bluhm: 'Press the \"Switch\" button on the cupboard receiver for a few seconds. This triggers the reception mode on the configuration channel. Hold the switch for a few seconds.' and the 9-byte command 'ba MM NN ff 01 20 XX YY dd' (no target-position field). Port-Net: '//uint64_t switch_cfg_addr = 0x544D554C42LL;' and no handler for type 0x20. BA-139: 'Press on the SERVO-DRIVE switch - The lift system closes automatically'. The scout lead from daumemo describes the switch press as a toggle.",
+   "sources": [
+    "https://www.bluhm-de.com/content/os-tools/en/projects/home-information-system/blum-servodrive-wireless-protocol-deciphered.html",
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/src/blum_servo_drive.h",
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sen_$aof_$v7.pdf"
+   ],
+   "design_impact": "Use path A for the timer because its close is idempotent. Keep path B as a fallback, for example if sync does not work on the owner's generation; it must check the flap sensor before sending a toggle. The wired modification of the switch (daumemo) is the non-RF fallback and belongs to another agent's angle."
+  },
+  {
+   "claim": "nRF24 clone chips:\n- Si24R1 clones (often sold as nRF24L01+) invert the NO_ACK bit, reportedly when dynamic payload length is enabled. ACK exchange with genuine Nordic chips then fails in ESB mode; a dynamic-ACK workaround exists.\n- BK2421/2423/2425 (RFM70/73/75 and many COB 'nRF24L01+' fakes) need undocumented bank-1 initialisation, which RF24 does not do, and have a hidden 'compatible mode' bit for NO_ACK.\n- SE8R01 is not compatible.\n- XN297 scrambles and bit-reverses data and uses a different CRC, so it needs software emulation and is not compatible over the air.\n- Libraries cannot tell clones from genuine parts.",
+   "confidence": "medium",
+   "evidence": "Kegetys/simagic-arduino-poc: 'most nRF24L01 chips you find ie. from Aliexpress are clones, including my Si24R1 modules.'; 'These clone modules have a hardware bug where they have the message NO_ACK bit inverted from the genuine ones'; 'this means they are not directly capable of communicating the ACK packets with the genuine chips.' MySensors forum (Zeph, 2015-03-25): 'the Si24R1 got the ACK bit inverted (following an error in the datasheet)', 'so it's incompatible with the real nRF24L01+ (and good clones) in ESB mode', 'The Si24R1 is often falsely labeled as nRF24L01+.' RFM7x-lib README: 'when they enabled “Dynamic Payload Length” (EN_DPL) in the \"FEATURE\" register, one bit get’s activated in the on-air payload (the NO_ACK bit)'; 'BANK1 registers have to be initialized with predefined undocumented magic values'; 'To communicate with SI24R1, it have to be set into static compatible mode'; 'SE8R01 (... not compatible)'; a COB fake 'turns out to be ordinary bk2425'. goebish XN297_emu.ino: 'static const uint8_t xn297_scramble[] = {0xe3, 0xb1, ...}', bit_reverse(), CRC 'initial = 0xb5d2'. CircuitPython_nRF24L01 docs (search snippet): no way 'to differentiate between an actual nRF24L01+ and a clone/counterfeit'. All of these are community reports; no Nordic errata.",
+   "sources": [
+    "https://github.com/Kegetys/simagic-arduino-poc",
+    "https://forum.mysensors.org/topic/1153/we-are-mostly-using-fake-nrf24l01-s-but-worse-fakes-are-emerging",
+    "https://raw.githubusercontent.com/jnk0le/RFM7x-lib/master/README.md",
+    "https://raw.githubusercontent.com/goebish/nrf24_multipro/master/nRF24_multipro/XN297_emu.ino",
+    "https://circuitpython-nrf24l01.readthedocs.io/en/latest/troubleshooting.html"
+   ],
+   "design_impact": "The Blum protocol needs dynamic payloads, auto-ACK and ACK payloads, which is exactly where Si24R1 clones fail against genuine Nordic chips. Buy from a source that states a genuine Nordic nRF24L01+, or test two batches against the drive before designing the PCB and enclosure. Avoid COB/epoxy-blob modules, RFM73/RFM75/BK242x, SE8R01 and XN297. If stuck with an Si24R1, the Kegetys dynamic-ACK trick is a possible workaround (untested with Blum). The nRF52840 route avoids the clone lottery altogether."
+  },
+  {
+   "claim": "Power: the nRF24L01+ runs on 1.9-3.6 V and draws about 13.1 mA receiving at 1 Mbps, 11.3 mA transmitting at 0 dBm and 7.5 mA at -12 dBm; the device must stay in receive mode all the time to catch drive frames. RF24's guidance is a capacitor close to the module (typically 10 µF, electrolytic or tantalum, low ESR). PA+LNA modules draw up to 115 mA when transmitting and 45 mA when receiving, and need shielding. The XIAO ESP32-C3's 3V3 pin is rated 500 mA in the spec table and 700 mA in the text.",
+   "confidence": "high",
+   "evidence": "Nordic PS v1.0 section 5.1: IVDD_TX0 11.3 mA at 0 dBm, IVDD_TX6 9.0 mA, IVDD_TX12 7.5 mA, IVDD_TX18 7.0 mA, IVDD_2M 13.5 mA, IVDD_1M 13.1 mA, IVDD_250 12.6 mA, IVDD_PD 900 nA; 'VDD Supply voltage 1.9 3.0 3.6 V'. RF24 COMMON_ISSUES: 'If you're not receiving ACK packets correctly/reliably on data rates lower than 2MBPS, try adding a big capacitor close to the module/chip.'; 'For reliability, please use Electrolytic or Tantalum capacitors.'; 'Typically, 10uF is enough.'; PA/LNA table 'Emission mode current(peak) | 115 mA', 'Receive Mode current(peak) | 45 mA'; 'Needs shielding from electromagnetic interference.' Seeed XIAO ESP32-C3 wiki: 'You can draw 700mA' and 'Max 3.3V Output Current: 500mA'.",
+   "sources": [
+    "C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/nordic/nrf24l01p_ps.pdf",
+    "https://raw.githubusercontent.com/nRF24/RF24/master/COMMON_ISSUES.md",
+    "https://wiki.seeedstudio.com/XIAO_ESP32C3_Getting_Started/"
+   ],
+   "design_impact": "Parts list: a plain PCB-antenna nRF24L01+, 10-100 µF electrolytic or tantalum plus 100 nF ceramic soldered at the module pins, powered from the XIAO's 3V3. Use USB or mains power; continuous receive rules out a coin cell (power supply is another agent's angle). Skip PA+LNA unless range really requires it, since the drive is well under 2 m away. If one is used, add 100 µF, shield it and turn the PA level down."
+  },
+  {
+   "claim": "Wiring to a XIAO ESP32-C3: the default SPI pins are SCK = D8 (GPIO8), MISO = D9 (GPIO9), MOSI = D10 (GPIO10), with SS = GPIO20. GPIO2, GPIO8 and GPIO9 are strapping pins, GPIO9 is the BOOT button, and there is no user LED. The nRF24 shifts its STATUS register out on MISO whenever CSN goes low, and STATUS bit 7 is always 0. So if CSN is floating or low at reset, MISO can pull GPIO9 low and the C3 starts in download mode. Suggested mapping: CE = D2 (GPIO4), CSN = D3 (GPIO5) with a 10 kΩ pull-up to 3V3, optional IRQ = D1 (GPIO3), sync button and reed sensor on D4/D5 (GPIO6/7) with pull-ups; leave D0 (GPIO2, strapping) free. The Port-Net example's GPIO9 button cannot be used on the C3 together with the default MISO.",
+   "confidence": "medium",
+   "evidence": "arduino-esp32 variants/XIAO_ESP32C3/pins_arduino.h: 'SS = 20; MOSI = 10; MISO = 9; SCK = 8;', 'D0 = 2; D1 = 3; D2 = 4; D3 = 5; ... D8 = 8; D9 = 9; D10 = 10;'. Seeed wiki: 'GPIO2, GPIO8, and GPIO9 are strapping pins', BOOT = GPIO9, 'there is no LED_BUILTIN available for the XIAO ESP32C3'. Nordic PS: 'The content of the status register is always read to MISO after a high to low transition on CSN.'; STATUS 'Reserved 7 0 R/W Only '0' allowed'; MISO pin 'SPI Slave Data Output, with tri-state option'. The boot-mode risk and the pin choice are my engineering inference.",
+   "sources": [
+    "https://raw.githubusercontent.com/espressif/arduino-esp32/master/variants/XIAO_ESP32C3/pins_arduino.h",
+    "https://wiki.seeedstudio.com/XIAO_ESP32C3_Getting_Started/",
+    "C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/nordic/ps.txt"
+   ],
+   "design_impact": "On a C3 build: change the constructor to RF24 radio(D2, D3), fit the CSN pull-up, use an external sync button, and test cold boots with the radio attached. Alternatively move MISO to a non-strapping pin with SPI.begin(sck, miso, mosi), since the C3's GPIO matrix allows any pins. Or pick the XIAO ESP32-C6, where the example runs unchanged."
+  },
+  {
+   "claim": "ESPHome is feasible but not plug-and-play. ESPHome's ESP32 default framework is now esp-idf, Arduino is 'integrated as an ESP-IDF component', and the platformio toolchain is deprecated with removal planned for 2027.2.0; the 'libraries' option adds libraries to the PlatformIO project. Existing nRF24 external components: loucks1/nrf24_espidf (uses the ESPHome SPI bus, supports dynamic payloads and ACK payloads, 250k/1M/2M), kuralabs/esphome-nrf24 (an RF24 wrapper with fixed 32-byte zero-padded frames, which does not fit Blum), and device-specific ones such as juancase/esphome-xiaomi-lightbar-nrf24, which follows the original remote's traffic.",
+   "confidence": "medium",
+   "evidence": "esphome.io/components/esp32: 'Defaults to esp-idf for all ESP32 variants.'; 'The Arduino framework is integrated as an ESP-IDF component.'; 'The platformio toolchain is deprecated and will be removed in 2027.2.0.' esphome.io/components/esphome: 'The libraries option allows you to include libraries in the PlatformIO project.' loucks1/nrf24_espidf README: 'Uses the standard ESPHome SPI bus.', 'Support for dynamic payloads and ACK payloads.', 'Supports 250Kbps, 1Mbps, and 2Mbps.' kuralabs/esphome-nrf24 README: 'a thin, easy-to-use wrapper around the excellent RF24 library', 'Payloads are fixed-size, 32-byte, zero-padded frames'. GitHub repository search 'esphome nrf24' found 9 results (2026-11-05).",
+   "sources": [
+    "https://esphome.io/components/esp32/",
+    "https://esphome.io/components/external_components/",
+    "https://esphome.io/components/esphome/",
+    "https://github.com/loucks1/nrf24_espidf",
+    "https://github.com/kuralabs/esphome-nrf24",
+    "https://github.com/juancase/esphome-xiaomi-lightbar-nrf24",
+    "https://api.github.com/search/repositories?q=esphome+nrf24"
+   ],
+   "design_impact": "Option 1, fastest: plain Arduino/PlatformIO firmware with Port-Net as-is, standalone timer, optional MQTT. Option 2, ESPHome: an external component that ports Port-Net's roughly 300-line state machine onto an esp-idf nrf24 driver such as loucks1's, avoiding the deprecated PlatformIO path, and exposes cover, binary_sensor, button and number entities. Option 3: vendor RF24 and Port-Net under 'framework: type: arduino'. In option 3, the library's callbacks run in its own 'BlumLoop' task and must hand events to ESPHome's loop() instead of calling publish_state() directly."
+  },
+  {
+   "claim": "nRF52840 route, Nordic's own ESB library (nRF Connect SDK): it is 'Backward compatible with legacy nRF24Lxx Enhanced ShockBurst' and should be used with ESB_LEGACY_CONFIG for nRF24 devices. Addresses are a 2-4 byte base plus a 1-byte prefix; pipe 0 has its own base and pipes 1-7 share base 1; 'the address bytes are rearranged in ESB to match the nRF24L radios'. ACK payloads are supported. A monitor mode captures packets and ACKs from other ESB devices without sending ACKs.",
+   "confidence": "high",
+   "evidence": "NCS ESB docs (latest, NCS 3.4.99): 'Backward compatible with legacy nRF24Lxx Enhanced ShockBurst'; 'To communicate with nRF24 devices, use the configuration ESB_LEGACY_CONFIG'; 'Pipe 0 has its own unique base address (base address 0), while pipes 1-7 use the same base address (base address 1).'; 'The on-air addresses are composed of a 2-4 byte long base address in addition to a 1 byte prefix address.'; 'the address bytes are rearranged in ESB to match the nRF24L radios'; 'the PRX is allowed to attach a data payload to the ACK packet'; 'ESB Monitor mode feature allows you to capture both packets and ACKs sent by other ESB devices'; 'All received packets are added to the RX FIFO if it has available space, without sending ACKs.'; parameters, addresses and prefixes 'must be the same as those configured in the PTX and PRX nodes'. The docs navigation lists the samples 'Enhanced ShockBurst: Transmitter with Bluetooth LE' and 'Receiver with Bluetooth LE'.",
+   "sources": [
+    "https://nrfconnectdocs.nordicsemi.com/ncs/latest/nrf/protocols/esb/index.html"
+   ],
+   "design_impact": "An nRF52840 can speak the Blum link natively with a genuine Nordic radio and no clone risk. Monitor mode makes it the cleanest passive analyser. Map the Blum address as prefix = pipe byte (01/02) and base = the 4 bytes 0xDD + reversed ID, then verify empirically. ESB together with BLE is possible in NCS via the 'with Bluetooth LE' samples, which would give a Home Assistant link without Wi-Fi."
+  },
+  {
+   "claim": "nRF52840 route on Arduino: TMRh20's nrf_to_nrf (v1.6.0, 2026-10-27, GPL-3.0) is an 'ESB driver with an RF24-compatible API' for nRF52/nRF54. Differences from the nRF24: a single-layer buffer instead of a 3-level FIFO, no CE/CSN pins, PA levels -12/2/6/8 dBm, ACK payloads and dynamic payloads, 8 pipes, architectures nordicnrf52,nrf52. Board support for the XIAO nRF52840: Seeed's 'Seeed nRF52 Boards' core (recommended for Bluetooth) and an mbed-enabled core; Zephyr board xiao_ble flashed via its UF2 bootloader. Pros against ESP32 + nRF24: one genuine-Nordic chip, smaller enclosure, monitor-mode tooling. Cons: no Wi-Fi, Port-Net must be ported (FreeRTOS task, Preferences, RF24 API), a single receive buffer, and a much smaller community for this use. The lack of a documented 250 kbps mode on the nRF52840 does not matter because Blum uses 1 Mbps.",
+   "confidence": "medium",
+   "evidence": "nrf_to_nrf README: 'nRF52x & nRF54x Enhanced ShockBurst (ESB) driver with an RF24-compatible API (Arduino / PlatformIO).'; 'There is only a single-layer buffer (not a 3-layer FIFO like the nRF24L01).'; 'Address note (RF24-compatible): for 5-byte addresses, the first byte is the identifier/prefix byte'. library.properties: 'sentence=OSI Layer 2 - NRF52x to NRF24L01+ ESB communication', 'architectures=nordicnrf52,nrf52'. Header: 'bool writeAckPayload(uint8_t pipe, void* buf, uint8_t len);', 'Same as NRF24 except the 52840 has 8 pipes', PA '(0) represents -12dBm (1) represents 2dBm (2) represents 6dBm (3) represents 8dBm'. Seeed XIAO BLE wiki: 'It is recommanded to use the Seeed nRF52 Boards library if you want to apply Bluetooth function'; SPI on D8/D9/D10 (P1.13/P1.14/P1.15). Zephyr: board 'xiao_ble', targets 'xiao_ble/nrf52840' and 'xiao_ble/nrf52840/sense', 'The XIAO BLE ships with the Adafruit nRF52 Bootloader'. Port-Net: setDataRate(RF24_1MBPS).",
+   "sources": [
+    "https://github.com/TMRh20/nrf_to_nrf",
+    "https://raw.githubusercontent.com/TMRh20/nrf_to_nrf/main/src/nrf_to_nrf.h",
+    "https://raw.githubusercontent.com/TMRh20/nrf_to_nrf/main/library.properties",
+    "https://wiki.seeedstudio.com/XIAO_BLE/",
+    "https://docs.zephyrproject.org/latest/boards/seeed/xiao_ble/doc/index.html"
+   ],
+   "design_impact": "For a standalone 'auto-close' box with no Home Assistant, a XIAO nRF52840 ($9.90) with nrf_to_nrf plus a port of Port-Net's state machine is attractive: one chip, no clone risk, low power. With HA via Wi-Fi, ESP32 + nRF24 stays simpler. Licensing: nrf_to_nrf is GPL-3.0, so a combined firmware is GPL-3.0 and Port-Net's GPL-2.0 must allow 'or later' (its LICENSE text does not say) if it is distributed."
+  },
+  {
+   "claim": "Verifying with an nRF24L01+: on this chip dynamic payload length on a pipe requires auto-ACK on that pipe. A listener tuned to the real drive's address with dynamic payloads on will therefore also send ACKs, colliding with the drive's own. For truly passive capture, run the chip in old ShockBurst mode (EN_AA = 0, ARC = 0), where the 9-bit packet-control field is no longer parsed: set CRC off, a fixed 32-byte payload and the target address, then decode the control field, payload and CRC-16 (X^16+X^12+X^5+1, init 0xFFFF) in software. Channel activity can be found with RF24's scanner example (received-power detector above -64 dBm).",
+   "confidence": "high",
+   "evidence": "Nordic PS v1.0 DYNPD: 'DPL_P0 ... Enable dynamic payload length data pipe 0. (Requires EN_DPL and ENAA_P0)' (same for P1-P5); '7.9 Compatibility with ShockBurst ... Set the register EN_AA = 0x00 and ARC = 0 to disable Enhanced ShockBurst'; 'The 9 bit Packet Control Field is not present in the ShockBurst packet format.'; 'The CRC is optional in the ShockBurst packet format'; 'The polynomial for 2 byte CRC is X16+ X12 + X5 + 1. Initial value 0xFFFF.'; 'Received Power Detector (RPD) ... triggers at received power levels above -64 dBm'. RF24 examples/scanner/scanner.ino: 'Channel scanner and Continuous Carrier Wave Output', 'radio.setAutoAck(false);   // Don't acknowledge arbitrary signals', noise addresses {0x55,0x55},{0xAA,0xAA}. Turning this into a passive-capture method is my inference from the datasheet.",
+   "sources": [
+    "C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/nordic/ps.txt",
+    "https://raw.githubusercontent.com/nRF24/RF24/master/examples/scanner/scanner.ino"
+   ],
+   "design_impact": "Verification plan on the owner's own system:\n1. Run the RF24 scanner next to the switch while pressing it, to see which channels are used (expect 4, 10 and maybe 52).\n2. Pair Port-Net with BLUM_DEBUG on to learn the drive ID.\n3. Point a second nRF24 at drive-ID suffix 01 and 02 on channel 4 in raw ShockBurst mode, to log switch frames and drive relays passively and calibrate the byte-12 mapping.\nA plain nRF24 module (about 2-3 EUR) is enough; no special hardware is needed."
+  },
+  {
+   "claim": "Other analysis tools: an nRF52840 USB Dongle running NCS ESB monitor mode is a passive ESB analyser (9.78 EUR before VAT at DigiKey DE, in stock). Universal Radio Hacker natively supports TX/RX SDRs that cover 2.4 GHz, namely HackRF, BladeRF, LimeSDR, PlutoSDR and USRP, as an optional check. Common RTL-SDR dongles (R820T/R828D, including the RTL-SDR Blog V4) reach only about 1766 MHz and cannot receive 2.4 GHz.",
+   "confidence": "high",
+   "evidence": "DigiKey DE NRF52840-DONGLE: '€9.78 (excluding VAT)', '€11.63820 with VAT', 1,541 in stock, 'nRF52840 - 802.15.4 (Thread, Zigbee®), ANT, Bluetooth® 5.x (BLE) Transceiver 2.4GHz Evaluation Board'. NCS ESB: monitor mode captures packets and ACKs 'without sending ACKs'. URH README: 'native support for many common Software Defined Radios'. URH wiki 'Supported devices': BladeRF (RX/TX), HackRF (RX/TX), LimeSDR (RX/TX), PlutoSDR (RX/TX), USRP (RX/TX), RTLSDR (RX). rtl-sdr.com: R820T/R820T2/R860 '24 – 1766 MHz'; R828D (RTL-SDR Blog V4) '24 - 1766 MHz'.",
+   "sources": [
+    "https://www.digikey.de/en/products/detail/nordic-semiconductor-asa/NRF52840-DONGLE/9491124",
+    "https://nrfconnectdocs.nordicsemi.com/ncs/latest/nrf/protocols/esb/index.html",
+    "https://raw.githubusercontent.com/jopohl/urh/master/README.md",
+    "https://github.com/jopohl/urh/wiki/Supported-devices",
+    "https://www.rtl-sdr.com/about-rtl-sdr/"
+   ],
+   "design_impact": "Do not buy an RTL-SDR for this project. If an extra tool is wanted, the 10 EUR nRF52840 Dongle in monitor mode beats an SDR for ESB-level checks. An SDR plus URH is only worth it for modulation or timing checks, for example to confirm GFSK at 1 Mbps or a third channel."
+  },
+  {
+   "claim": "Current Blum declarations of conformity still list EN 300 440 v2.1.1 (generic short-range devices), not EN 300 328 (wideband/BLE), for the drive and for the switch:\n- 2025-06-26: drive units 21FA000.21/.22, 21FA001.21/.22, 21FA005.21/.22 ('SERVO-DRIVE Antriebseinheit für AVENTOS').\n- 2023-09-06: 23.A000/23.A001 ('für AVENTOS HF-/HL-/HS- top').\n- 2026-03-18: switch 23P5020 ('SERVO-DRIVE Funkschalter mit LED Anzeige').\nThe '.21/.22' suffixes point to hardware revisions; I could not link them to the reported September 2025 electronics change.",
+   "confidence": "medium",
+   "evidence": "doc_servodrive_2025.pdf p.2: 'Produkt-Typen: 21FA000.21 (SERVO-DRIVE Antriebseinheit für AVENTOS -- Verpackungsvariante V1) ... 21FA005.22 (... weltweit kundenspezifisch)'; p.3: 'EN 300 440 v2.1.1 Funkanlagen mit geringer Reichweite (SRD) ... 2018-11-01', signed 'Höchst 2025-06-26'. doc_drive_top: '23.A000 (SERVO-DRIVE Antriebseinheit für AVENTOS HF-/HL-/HS- top -- Einzelverpackung)', 'Hoechst, 2023-09-06'. doc_switch_2026.pdf: 'Produkt-Typ: 23P5020 (SERVO-DRIVE Funkschalter mit LED Anzeige)', 'EN 300 440 v2.1.1', signed 'Höchst 2026-03-18'. A retailer lists '21FA000 AVENTOS SERVO-DRIVE Set' under 'Aventos HL Einzelartikel bis 2023' (search result).",
+   "sources": [
+    "C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/ops_elec/blum_doc2/doc_servodrive_2025.pdf",
+    "C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/ops_elec/blum_doc2/doc_drive_top.pdf",
+    "C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/ops_elec/blum_doc2/doc_switch_2026.pdf",
+    "https://www.lignoshop.de/klappenbeschlaege/aventos-hl/Aventos-HL-Einzelartikel-bis-2023/21FA000-AVENTOS-SERVO-DRIVE-Set.html?isextsearch=alist"
+   ],
+   "design_impact": "Blum kept the same regulatory radio class, so a narrowband ESB-type link probably remains, but protocol or encryption changes cannot be ruled out (newer Blum patents are another agent's angle). The owner should read the drive label (21FA... with its suffix, or 23.A...) and the switch PCB marking, and run the pairing and capture tests before building the enclosure."
+  },
+  {
+   "claim": "Legal limits:\n- EU (ERC/REC 70-03, October 2026 edition, Annex 1 non-specific SRD, band i): 2400-2483.5 MHz, 10 mW e.i.r.p., no spectrum-access requirement, harmonised standard EN 300 440. Blum's own radios are at most +4 dBm (2.5 mW).\n- US (47 CFR 15.249): 2400-2483.5 MHz fundamental at most 50 mV/m at 3 m, roughly 0.75 mW (-1.2 dBm) e.i.r.p. by my calculation.\n- RF24 PA levels on a genuine nRF24L01+: MIN -18, LOW -12, HIGH -6, MAX 0 dBm. The Port-Net example uses RF24_PA_LOW.",
+   "confidence": "high",
+   "evidence": "ERC/REC 70-03 p.9: 'i 2400-2483.5 MHz 10 mW e.i.r.p. No requirement Not specified EN 300 440'; cover 'Edition of October 2026'. 47 CFR 15.249(a) table: '2400-2483.5 MHz | 50 | 500' (mV/m fundamental, µV/m harmonics); 'Field strength limits are specified at a distance of 3 meters.' RF24.h: '| RF24_PA_MIN (0) | -18 dBm |', '| RF24_PA_LOW (1) | -12 dBm |', '| RF24_PA_HIGH (2) | -6 dBm |', '| RF24_PA_MAX (3) | 0 dBm |'. BA-139: '+4 dBm / 2.5 mW'. The e.i.r.p. conversion, (E·d)²/30 = (0.05·3)²/30 ≈ 0.75 mW, is my calculation.",
+   "sources": [
+    "https://docdb.cept.org/document/845",
+    "https://docdb.cept.org/download/5013",
+    "https://www.law.cornell.edu/cfr/text/47/15.249",
+    "https://raw.githubusercontent.com/nRF24/RF24/master/RF24.h",
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sen_$aof_$v7.pdf"
+   ],
+   "design_impact": "A plain module at PA_LOW or PA_HIGH with its PCB antenna is far below the EU limit and stays near or below the US limit at -6 dBm or lower. A PA+LNA module at maximum (about +20 dBm claimed) would exceed both, so cap it in firmware or avoid it. Range is not an issue, since the device sits in or near the cabinet."
+  },
+  {
+   "claim": "The Blum channels share the band with the ESP32's own radios: 2404 and 2410 MHz (ch 4 and 10) fall inside Wi-Fi channel 1, and the possible 2452 MHz falls inside Wi-Fi channel 11. The ESP32's own Wi-Fi or BLE transmitter a few centimetres from the nRF24 can mask or block reception of a drive frame.",
+   "confidence": "low",
+   "evidence": "Blum channels from Port-Net ('setChannel(4)', 'setChannel(10)') and Nordic PS 'F0= 2400 + RF_CH [MHz]'; Blum band '2.404 to 2.452 GHz' (BA-139). The Wi-Fi channel plan (ch 1 centred at 2412 MHz, ch 6 at 2437, ch 11 at 2462, each about 20 MHz wide) and the BLE advertising channel 37 at 2402 MHz are general background knowledge; no source was fetched for them.",
+   "sources": [
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/src/blum_servo_drive.cpp",
+    "C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/nordic/ps.txt",
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sen_$aof_$v7.pdf"
+   ],
+   "design_impact": "Make Wi-Fi optional; a standalone timer needs none. If Wi-Fi is used, prefer an access point on channel 6, keep BLE off, place the nRF24 antenna a few centimetres away from the XIAO antenna in the OpenSCAD enclosure, and rely on the drive's retries plus the reed sensor."
+  },
+  {
+   "claim": "Prices and availability, snapshot for Nov 2026 (Seeed prices are in USD):\n- Seeed XIAO ESP32-C3: $4.90 (SKU 113991054, in stock); EU sellers seen at 6.05 EUR (OpenELAB DE sale, regular 7.32 EUR) and 7.24 EUR each for 10+ (Radiomag).\n- XIAO ESP32-C6: $5.20 (SKU 113991254, in stock).\n- XIAO nRF52840: $9.90 (10+: $8.90; SKU 102010448, in stock).\n- Nordic nRF52840 Dongle: 9.78 EUR before VAT (11.64 EUR incl.), DigiKey DE, 1,541 in stock.\n- nRF24L01 modules: AZ-Delivery 3-pack 7.99 EUR incl. VAT.\n- nRF24L01+PA+LNA: 2.28 EUR (OpenELAB DE sale, regular 3.25 EUR) and 8.95 EUR (hobbyelectronica.nl).\nNone of these listings guarantees a genuine Nordic chip.",
+   "confidence": "medium",
+   "evidence": "Seeed product pages fetched 2026-11-05: '$4.90' 'In stock' SKU 113991054; '$5.20' SKU 113991254; '$9.90', '10+: $8.90', SKU 102010448. DigiKey DE: '€9.78 (excluding VAT)'. Search snippets: OpenELAB 'Regulärer Preis 7,32 € Verkaufspreis 6,05 €'; Radiomag '10+ | 7.24 EUR'; AZ-Delivery 'Sale price€7.99 Tax included'; OpenELAB PA+LNA 'Regulärer Preis 3,25 € Verkaufspreis 2,28 €'; hobbyelectronica.nl '8,95 €'. Direct fetches of AZ-Delivery and OpenELAB returned HTTP 429, so those figures come from search snippets.",
+   "sources": [
+    "https://www.seeedstudio.com/Seeed-XIAO-ESP32C3-p-5431.html",
+    "https://www.seeedstudio.com/Seeed-Studio-XIAO-ESP32C6-p-5884.html",
+    "https://www.seeedstudio.com/Seeed-XIAO-BLE-nRF52840-p-5201.html",
+    "https://www.digikey.de/en/products/detail/nordic-semiconductor-asa/NRF52840-DONGLE/9491124",
+    "https://openelab.io/de/products/seeed-studio-xiao-esp32c3",
+    "https://www.radiomag.com.de/product/xiao%20esp32c3.html",
+    "https://az-delivery.de/en/products/3x-nrf24l01-mit-2-4-ghz",
+    "https://openelab.io/de/products/nrf24l01-transceiver-transceiver-module",
+    "https://www.hobbyelectronica.nl/en/product/nrf24l01-2-4ghz-pa-lna-wireless-transceiver-module/"
+   ],
+   "design_impact": "The radio parts cost under 20 EUR for either route. Budget for 2-3 nRF24 modules from different sources, because of clone variance, plus one nRF52840 Dongle (about 12 EUR) as a passive analyser if verification is wanted."
+  },
+  {
+   "claim": "Licensing: Port-Net's LICENSE is GPL-2.0 while its library.json says LGPL-3.0; RF24 is GPL-2.0; nrf_to_nrf is GPL-3.0. The owner's repository sven-borden/smart-servo-drive-blum-aventos (created 2026-11-05) is public on GitHub.",
+   "confidence": "medium",
+   "evidence": "RF24 LICENSE: 'GNU GENERAL PUBLIC LICENSE Version 2, June 1991'. nrf_to_nrf LICENSE: 'GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007'. Port-Net LICENSE: GPL v2, library.json '\"license\": \"LGPL-3.0\"'; the source files carry no license header (grep count 0). GitHub repository search lists 'sven-borden/smart-servo-drive-blum-aventos | Smart close for the Servi-Drive Blum Aventos | 2026-11-05'.",
+   "sources": [
+    "https://raw.githubusercontent.com/nRF24/RF24/master/LICENSE",
+    "https://raw.githubusercontent.com/TMRh20/nrf_to_nrf/main/LICENSE",
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/LICENSE",
+    "https://api.github.com/search/repositories?q=blum+servo&per_page=30"
+   ],
+   "design_impact": "Choose the repository's license deliberately: GPL-2.0-or-later works for the ESP32 + RF24 + Port-Net route. Ask the Port-Net author to clarify 'or later' before combining it with GPL-3.0 nrf_to_nrf in published firmware. Personal, unpublished use is unaffected."
+  }
+ ],
+ "negative_results": [
+  "GitHub MCP tools failed with 'Authentication Failed: Bad credentials'. I used the unauthenticated GitHub REST API and raw.githubusercontent.com instead, and the REST API later hit its rate limit (after the main data was collected).",
+  "GitHub repository search for 'blum servo', 'blum aventos', 'servo-drive blum', 'blumservodrive', 'blum servodrive', 'blum esphome' and 'blum nrf24' (2026-11-05) found no other radio prior art. Hits were Port-Net/BlumServoDrive, pierreallier/Pilotage_ServoDrive_Blum (drives the motor directly, no radio) and the owner's own new repo; 'blum nrf24' returned 0 results.",
+  "Port-Net/BlumServoDrive has 0 forks, 0 stars and 0 open issues. Its README (79 bytes) says nothing about the tested hardware, nRF24 module, drive generation, firmware or pairing procedure. Port-Net's other repositories include 'Homie' (an MQTT Homie library created the same day), which does not mention Blum.",
+  "Port-Net contains no code to pair as a switch or to send switch (type 0x20) frames; the switch configuration address is commented out. The first commit had a pollState() using 0x23 'power on' frames to read drive state; it was removed in the next commit, so state polling is not available.",
+  "The free part of bluhm-de.com has empty 'Sync' and 'Collision' sections and withholds all channel numbers and addresses (paywalled). The live page fetched 2026-11-05 matched the earlier local copy.",
+  "FCC: apps.fcc.gov EAS GenericSearchResult for grantee W95 returned HTTP 403 'Access Denied', and fccid.io/W95-23P502L00 returned HTTP 403. I did not try to get around the blocks, so I could not check the '2404/2410/2452 MHz' exhibit summary myself.",
+  "RF24's own docs (COMMON_ISSUES.md, RF24.h) mention Si24R1 only in the PA-level table, not the NO_ACK inversion. I found no Nordic or Si24R1-maker erratum; the inversion rests on community reports (Kegetys, MySensors, RFM7x-lib).",
+  "No source found that shows whether BK2425 handles ESB ACK payloads with genuine Nordic chips.",
+  "A German-language search for a 2025 SERVO-DRIVE electronics change or switch compatibility notice ('neue Elektronik', 'Umstellung', 21FA000) returned only retailer listings. No official Blum notice found; the September 2025 change is not verified by me.",
+  "No price found for plain nRF24L01+ modules at Berrybase, Reichelt or Botland. Direct fetches of AZ-Delivery and OpenELAB returned HTTP 429, so those prices come from search snippets.",
+  "No source documents which chip is inside the 23P5020 switch. The daumemo PCB crop (single QFN package, two crystal-like parts, a 6-pad programming footprint) is too low-resolution to read markings; this belongs to the hardware/FCC angle.",
+  "The XIAO nRF52840 product page and wiki make no explicit statement about Zephyr/NCS support; Zephyr's own board page does (board xiao_ble). I did not verify PlatformIO board support for this specific board."
+ ],
+ "open_questions": [
+  "What byte 12 of a 0x26 frame really means (0x01 vs 0x10 for open/close): Port-Net's send and receive paths contradict each other.",
+  "Does a synchronised drive relay every move to its partners (switch press, front press, manual lifting, power-up), and does it ever repeat or batch these frames?",
+  "Does the drive behave normally when its virtual sync partner is unpowered or out of range (still moves, error LED, delay)?",
+  "Does the drive check the partner's device-type byte (Port-Net uses 0x94; bluhm shows 0x01 in its sync frame) or the 0xBA ID prefix?",
+  "Does the 'top' generation (23.A000/23.A001, HK top, Link/Ok/Play buttons) use the same sync discovery (channel 10, 'BLUMS' address) and the same frame layout?",
+  "Which channel(s) does the original switch use, for normal commands and for programming (the 'BLUMT' address)? Is 2452 MHz (channel 52) the third channel?",
+  "What exactly changed in the SERVO-DRIVE electronics in September 2025, and do post-change drives add encryption, counter checks or time windows (see newer Blum patents such as the EP4162136A1 family)?",
+  "Is the radio in the switch and drive a genuine nRF24L01+, an nRF24LE1, or an nRF51/52 SoC in ESB mode? This matters for exact ESB timing and NO_ACK usage.",
+  "Which nRF24 module (genuine or clone) did the Port-Net author use, and on which drive generation and firmware was it tested?",
+  "Can a close sent while the flap is opening or closing (collision detection active) leave the drive needing a reset or reference run?",
+  "Would collision-avoidance linking (the <COLL> button) give a cleaner open/closed state broadcast than sync? It is not implemented anywhere and could block the real flap."
+ ],
+ "questions_for_user": [
+  "What part number is on the drive unit label (for example 21FA000.xx, 21FA001.xx, 23.A000/23.A001, or an HK top drive)? Which buttons does the drive have: <SWITCH>/<SYNC>/<COLL>/<Reset Motion>/<Reset Wireless>, or <Link>/<Ok>/<Play>/<Collision>/<Reset>?",
+  "Which AVENTOS model is it (HK top, HK-S, HF/HS/HL or HF/HS/HL top), and when was it bought or installed (before or after September 2025)?",
+  "How many SERVO-DRIVE units are in the cabinet, and are any already synchronised or collision-linked? Sync allows at most 3 units, and the ESP32 would use one slot.",
+  "What is printed on the radio switch label and its PCB (23P5020 or 21P5020, plus the board revision marking)? How many switches are paired?",
+  "Which country is the device used in (EU or US)? This decides the transmit-power limit.",
+  "Should opening the flap by hand also start the 5-minute timer? If yes, a reed/hall sensor is required.",
+  "Do you want Home Assistant or Wi-Fi integration, or a standalone auto-close box? Standalone favours a XIAO nRF52840 or a Wi-Fi-off ESP32; HA favours an ESP32-C6/C3 + nRF24.",
+  "Is there USB or mains power near the drive, or would you tap the Blum 24 V supply? The device has to listen continuously.",
+  "Are you willing to use the drive's <SYNC> (or <Link>) button once to pair, and if needed 'Reset Wireless'? Reset Wireless also unpairs the original switch, which would then have to be re-activated."
+ ]
+}

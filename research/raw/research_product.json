@@ -1,0 +1,293 @@
+{
+ "angle": "PRODUCT IDENTIFICATION: which Blum SERVO-DRIVE for AVENTOS parts exist (drive-unit families and generations, radio switches, power supplies, cables, uno/flex variants), how they are set up and behave (pairing, toggle, touch-to-open, timer, collision, LEDs, battery, range, wired inputs), how to tell the generation from labels, and how part numbers differ between the EU, UK and US.",
+ "summary": "Blum currently supports three SERVO-DRIVE for AVENTOS drive-unit families. 21FA00x is for the older HF/HS/HL lift systems: one universal unit with a lift-system selector, on sale since about 2009 and recently revised as .21/.22. 23KA00x is for AVENTOS HK top and existed by 07/2019 at the latest. 23.A00x is for HF top/HS top/HL top. It came out in late 2023 in the EU and June 2024 in the US, so the scout's guess of \"top launched around 2021\" is wrong for HF/HS/HL. The old AVENTOS HK used 21KA000. Blum offers no SERVO-DRIVE for HK-S, HK-XS or HKi.\n\nThere is a single current radio switch, 23P5020, which carries FCC ID W95-23P502L00-01 and IC 8352A-23P502L0001. It replaces 21P5020 (FCC W95-21P5020), and a dealer quote reports that it works with every SERVO-DRIVE radio module. 23P5020 has a round button with a battery LED and a Connect LED; 21P5020 has only a battery LED. Two switches come in each SERVO-DRIVE cover-cap set (23.8000, 23K8000).\n\nAll radios (switch, drives, flex receiver) share one specification in Blum's 11/2025 manual: 2.404–2.452 GHz, at most +4 dBm, typically 10 m range, \"bidirektional, über codierte Telegramme\". The battery is a CR2032.\n\nPairing works by putting the drive into teach mode and then pressing the switch. On the old generation that means holding <SWITCH> and then the switch; on the top generation it is <Connect>, then each switch, then <OK>. A switch can be paired to one drive only. An old-generation drive accepts up to 6 switches, up to 3 drives can be synchronised, and up to 6 can be linked for collision avoidance.\n\nTo open, you normally press the front; the spring distance bumpers let it move about 2 mm. The switch \"triggers opening or closing\", meaning it toggles depending on the current state. No Blum document describes any automatic close or timer for AVENTOS; only SERVO-DRIVE flex has a hold-open time (2.5/4/8 s). There is no documented wired trigger input. No beeper is mentioned; feedback is LEDs only.\n\nPower supplies are market-coded: Z10NE04xy (72 W) and Z10NA40xy plug-in (24 W, one drive only) now; Z10NE030x (24 W), Z10NA300/Z10NA30xyF (12 W, \"uno\") and US Z10NE020G (72 W) earlier. Z10NG120 is a wall holder, not a power supply. Blum forbids connecting any non-Blum device to these power supplies.\n\nYou identify the generation from the white label on the drive (21FA…/23KA…/23.A…, plus a BAUxxxxxxx serial and the FCC ID), from the label on the back of the switch, and from the button layout.\n\nDesign impact:\n- An ESP32 cannot learn \"open\" from the radio if the flap was opened by pressing the front, and a switch press is a state-dependent toggle. The device therefore needs its own flap-position sensor and must check that the flap is still open before it sends the close press.\n- The simplest actuator is a second genuine 23P5020 paired as an extra switch.\n\nKey local copies (untrusted downloads, text extracts alongside):\n- C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/prodid/dl5/kla0031-ba-139_ba_dok_bau_de.pdf (BA-139/7, 11.25)\n- C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/prodid/dl1/ldl_kla0001.pdf (MA-502/3 EN, 10.20)\n- C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/prodid/dl4/cme90761_ma_dok_bau_us_en.pdf (MA-1098, 09.23, pictograms)\n- C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/prodid/dl3/aventos-top-info.pdf (AVENTOS top ordering info, 2023)\n- C:/Users/glagl/AppData/Local/Temp/claude/245be834f3f85c48/d2b78163-db28-4d75-a608-30bae3174e3b/scratchpad/prodid/dl1/schachermayer_servodrive.pdf (BA-139/3, 07.19)\n\nNote: the shared WebSearch budget ran out partway through this task, so I could not run the last searches (for example, what 21LA/21SA are, and the switch limit on the top generation).",
+ "findings": [
+  {
+   "claim": "Blum lists exactly three current SERVO-DRIVE for AVENTOS drive-unit families. (1) 21FA00x for AVENTOS HF/HS/HL (non-top): one universal unit, configured with a lift-mechanism selection switch. (2) 23KA00x for AVENTOS HK top. (3) 23.A00x for AVENTOS HF top/HS top/HL top, which all share one drive. The legacy non-top AVENTOS HK used 21KA000. Blum's program page lists no SERVO-DRIVE for HK-S, HK-XS or HKi.",
+   "confidence": "high",
+   "evidence": "Blum DE program page lists 'Antriebseinheit für AVENTOS HF top, HS top, HL top', 'Antriebseinheit für AVENTOS HK top', 'Antriebseinheit für AVENTOS HF, HS, HL'; HKi/HK-S/HK-XS not mentioned. BA-139/7 (11.25) declares 'Maschinentypen 23.A001, 23KA001, 21FA000.22, 21FA001.22, 21FA005.22'. Its technical data is headed 'Antriebseinheit SERVO-DRIVE für AVENTOS 21FA00x' and 'Antriebseinheit SERVO-DRIVE für AVENTOS top 23.A00x, 23KA00x'. Blum Inc 2016 brochure: 'SERVO-DRIVE set 21FA000' appears under HF, HS and HL (cover sets 21F8000.NA / 21S8000.NA / 21L8000.NA), and 'SERVO-DRIVE set 21KA000 Cover set 21K8000.NA' under HK. Blum Inc 2014: 'Use the lift mechanism selection switch to select the appropriate lift system application.' Blum US AVENTOS top brochure (2024): 'AVENTOS HF top, AVENTOS HL top and AVENTOS HS top all have the same low-noise drive unit'. MA-502/3 (10.20) DoC additionally lists '21LA001, 21LA000, 21SA001, 21SA000, 21KA001 and 21KA000'.",
+   "sources": [
+    "https://www.blum.com/de/de/produkte/bewegungstechnologien/servo-drive/servo-drive-aventos/programm/",
+    "https://www.blum.com/file/kla0031-ba-139_ba_dok_bau?country=de&language=de",
+    "https://www.woodworkerexpress.com/skin/common_files/files/specs/blum/blum-servo-drive-brochure.pdf",
+    "https://cdnimages.opentip.com/Docs/HDL/ServoDriveAventos_hl.pdf",
+    "https://www.blum.com/file/cme105764_ep_dok_bus?country=us&language=en",
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf"
+   ],
+   "design_impact": "The user's drive is one of 21FA (or, if old, 21LA/21SA/21KA), 23KA or 23.A. If the device presses a genuine switch, the drive generation barely matters because one switch part fits every family. For RF sniffing or emulation, the generation decides which radio module is on the other end (see the module-ID finding). Ask the user for a photo of the drive label."
+  },
+  {
+   "claim": "Product-type and packaging suffixes. 23.A000 is the set: drive, 1500 mm distribution cable, connecting node and 2 cable-end protectors (Blum ID 05362207, 'ANT+ZUT V1 TGR'). 23.A001 is the drive in multipack (ID 06062741, 'ANTR-EH V5 TGR'). HK top follows the same pattern: 23KA000 (ID 9961208) and 23KA001 (ID 4694624). Old generation: 21FA000.2x (V1), 21FA001.2x (V5), 21FA005.2x (customer-specific). Drive serial numbers have the form BAUxxxxxxx. The drive colour is TGR / RAL 7037 grey.",
+   "confidence": "high",
+   "evidence": "EU DoC me8343120: 'Produkt-Typen: 23.A000 (SERVO-DRIVE Antriebseinheit für AVENTOS HF-/HL-/HS- top -- Einzelverpackung) 23.A001 (... -- Mehrfachverpackung) Serien-Nummer: BAUxxxxxxx ... 05362207 23.A000 ANT+ZUT V1 TGR / 06062741 23.A001 ANTR-EH V5 TGR'. EU DoC me199043: '23KA000 (... AVENTOS HK top -- Einzelverpackung) 23KA001 (... -- Mehrfachverpackung) ... 9961208 23KA000 ANT+ZUT V1 TGR / 4694624 23KA001 ANTR-EH V5 TGR'. EU DoC cme185362: '21FA000.21 (SERVO-DRIVE Antriebseinheit für AVENTOS -- Verpackungsvariante V1) 21FA001.21 (... V5) 21FA005.21 (... kundenspezifisch) 21FA000.22 ... 21FA001.22 ... 21FA005.22 ... Serien-Nummer: BAUxxxxxxx'. AVENTOS top ordering info: 'SERVO-DRIVE-Set R7037 K 23.A000 ... 9a 1 x SERVO-DRIVE-Antriebseinheit 9b 1 x SERVO-DRIVE-Verteilerkabel, 1500 mm - 1 x Verbindungsknoten - 2 x Kabelendenschutz'.",
+   "sources": [
+    "https://www.blum.com/file/me8343120_zf_dok_bau?country=de&language=de",
+    "https://www.blum.com/file/me199043_zf_dok_bau?country=de&language=de",
+    "https://www.blum.com/file/cme185362_zf_dok_bau?country=de&language=de",
+    "https://www.lignoshop.de/out/media/aventos-top-info.pdf"
+   ],
+   "design_impact": "Reading only the prefix of the drive label (21FA / 23KA / 23.A) is enough to fix the generation. The suffix (.21/.22, 000/001/005) tells you the hardware revision, which matters for the RF angle because the .2x 21FA drives have their own FCC ID."
+  },
+  {
+   "claim": "Timeline. SERVO-DRIVE for AVENTOS has carried CE marking since 2009. The HK top drive (23KA) and the new switch 23P5020 first appear between 11/2016 and 07/2019. The HF/HS/HL top drive 23.A000 arrived in 2023 (EU) and 2024 (US). The scout's 'top generation launched around 2021' is therefore wrong for HF/HS/HL top.",
+   "confidence": "medium",
+   "evidence": "MA-502/1DE (11.16) DoC: 'Die CE-Kennzeichnung wurde in 09 angebracht'. It covers HF/HS/HL/HK only, with types '21xA0x1 ... 21P5020, 21.A00L33.xx' and no 23KA or 23P5020. BA-139/3 (07.19) already has marking pages for '23KA00y' and '23P5020'. MA-1098/0ML is dated '09.23'. The EU DoC for 23.A000/23.A001 PDF was created 2023-11-15. The Lignoshop category is 'Aventos HF Einzelartikel ab 2024'. Blum Inc conversion sheet: 'Current SERVO-DRIVE set - AVENTOS HF/HS/HL 09026180 21FA000 | New SERVO-DRIVE set - AVENTOS HF/HS/HL top 05362207 23.A000 ... Updated June 2024'. A search snippet (page not opened, HTTP 403) for electric.garden 'servo-drive-for-aventos-hf-hs-hl-top-23a001' gave a filing date of 2022-10-23.",
+   "sources": [
+    "https://www.ballerina.de/media/config/media/content/downloads/montageanleitungen/montage_blum5.pdf",
+    "https://webshop.schachermayer.com/cdn/medias/docus/175/webd_Blum_Servodrive_Montageanleitung.pdf",
+    "https://www.blum.com/file/cme90761_ma_dok_bau?country=us&language=en",
+    "https://www.blum.com/file/cme106574_fl_dok_bus?country=us&language=en",
+    "https://www.lignoshop.de/klappenbeschlaege/aventos-hl/Aventos-HF-Einzelartikel-ab-2024/23-A000-Aventos-top-Servo-Drive-Set.html",
+    "https://electric.garden/julius-blum-gmbh-w95/servo-drive-for-aventos-hf-hs-hl-top-23a001"
+   ],
+   "design_impact": "The purchase year narrows it down. HF/HS/HL bought before 2023/24 most likely has a 21FA drive. HK top bought since about 2018/19 has 23KA. HF/HS/HL top bought from 2024 has 23.A. A 'universal' device (RF approach) has to cope with at least two radio-module generations."
+  },
+  {
+   "claim": "Radio switch identification. 21P5020 is the old switch: rectangular face with only a battery LED, FCC ID W95-21P5020, IC 8352A-21P5020, made first with PCB 21P502L00 and later with PCB 23P502L00. 23P5020 is the current 'SERVO-DRIVE Funkschalter mit LED Anzeige': round button with a battery LED and a Connect LED, FCC ID W95-23P502L00-01, IC 8352A-23P502L0001. An earlier FCC ID, W95-23P502L00, also exists.",
+   "confidence": "high",
+   "evidence": "BA-139/3 (07.19) shows two switches: 'A 1 Batterieanzeige (LED)' and 'B 1 Batterieanzeige (LED) 2 Connect (LED)'. Its 21P5020 marking page: 'IC: 8352A-21P5020 ... FCC ID: W95-21P5020'. BA-139/7 (11.25) 23P5020 marking page: 'IC: 8352A-23P502L0001 / CAN ICES-003 (B)/NMB-3(B) ... FCC ID: W95-23P502L00-01'. MA-502/3 Supplier's DoC: 'Product-Types: ... 23P5020, 21P5020 both with PCB 23P502L00; 21P5020 with PCB 21P502L00'. EU DoC cme213759: 'Produkt-Typ: 23P5020 (SERVO-DRIVE Funkschalter mit LED Anzeige) ... Funk-Schalter zur Bedienung von Blum SERVO-DRIVE Produkten'. A search result (not opened, fcc.report blocks fetches) shows https://fcc.report/FCC-ID/w9523p502l00/4439981.pdf titled 'by Blum ... SERVO-DRIVE Instruction leaflet EN', which shows that W95-23P502L00 exists.",
+   "sources": [
+    "https://webshop.schachermayer.com/cdn/medias/docus/175/webd_Blum_Servodrive_Montageanleitung.pdf",
+    "https://www.blum.com/file/kla0031-ba-139_ba_dok_bau?country=de&language=de",
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf",
+    "https://www.blum.com/file/cme213759_zf_dok_bau?country=de&language=de",
+    "https://fcc.report/FCC-ID/w9523p502l00/4439981.pdf"
+   ],
+   "design_impact": "There are at least three switch hardware variants: PCB 21P502L00, PCB 23P502L00, and 23P502L00 rev -01. Before any RF reverse-engineering, read the FCC ID on the back of the user's switch, because the radio chip may differ between revisions (cross-link: FCC internal-photos angle). The Connect LED on 23P5020 gives visible feedback that pairing or a link worked, and could be tapped as a transmit/acknowledge indicator (inference)."
+  },
+  {
+   "claim": "23P5020 replaces 21P5020 and, per a dealer, works with every SERVO-DRIVE radio module (older HF/HS/HL, HK top, flex). It is 42 mm long, symmetrical/non-handed and press-fit, in colours SW (silk white), HGR (light grey) and TGR (deep grey). EU dealers sell it as a single piece; Blum Inc sold 21P5020 as a two-switch 'switch set'. Every SERVO-DRIVE cover-cap set includes 2 switches.",
+   "confidence": "medium",
+   "evidence": "toolz4you, copying Blum wording: 'Die neuen SERVO-DRIVE–Schalter 23P5020 sind mit allen SERVO-DRIVE Funkmodulen kompatibel (bestehende SERVO-DRIVE für AVENTOS HF/HS/HL, SERVO-DRIVE flex, SERVO-DRIVE für AVENTOS HK top).' Lignoshop: 'Hinweis: 23P5020 ersetzt den alten Schalter 21P5020.', 'seidenweiß / hellgrau / tiefgrau - Länge 42 mm - zum Eindrücken', 'Der Schalter ist in den SERVO-DRIVE Abdeckkappen-Sets enthalten (HL/HS/HF).' Blum 2026 catalogue: 'Cover cap set for SERVO-DRIVE, part no. 23.8000 ... SERVO-DRIVE switch (2 pieces)'. AVENTOS top ordering info: HK top cover cap set '23K8000 ... 2d 2 x SERVO-DRIVE-Schalter'. Blum Inc 2014: 'SERVO-DRIVE switch set ... Set includes two switches ... Part no. 21P5020'. US SKUs: 23P5020 light grey ident 08457250, silk white 06550469, dark grey '23P5020T'.",
+   "sources": [
+    "https://www.toolz4you.com/blum-servo-drive-schalter-fur-aventos-symmetrisch-tiefgrau-23p5020-628101.html",
+    "https://www.lignoshop.de/servo-drive-schalter-symmetrisch-blum23p5020.html",
+    "https://publications.blum.com/2026/catalogue/en/14/",
+    "https://www.lignoshop.de/out/media/aventos-top-info.pdf",
+    "https://cdnimages.opentip.com/Docs/HDL/ServoDriveAventos_hl.pdf",
+    "https://www.woodworkerexpress.com/hk-top-servo-drive-switch-dark-grey-blum-23p5020t.html",
+    "https://ahturf.com/blum-23p5020-servo-drive-switch-for-aventos-non-handed-3-finishes/"
+   ],
+   "design_impact": "BOM option: buy one new 23P5020 (about €39–54 / US$43–54) and pair it as an additional switch to use as the ESP32's actuator. This needs no protocol cloning and should work whatever the drive generation. Colour does not matter. Most installations already have 2 paired switches, one on each side of the carcass."
+  },
+  {
+   "claim": "The switch, all three AVENTOS drive families and the SERVO-DRIVE flex radio share one RF specification: 2.404–2.452 GHz, maximum transmit power +4 dBm (2.5 mW), typical range 10 m, bidirectional transmission using coded telegrams.",
+   "confidence": "high",
+   "evidence": "BA-139/7 technical data gives the same radio block for 'Antriebseinheit SERVO-DRIVE für AVENTOS 21FA00x', 'Antriebseinheit SERVO-DRIVE für AVENTOS top 23.A00x, 23KA00x', 'Antriebseinheit SERVO-DRIVE flex Z10C500x ... Funk (mit Funkempfänger)' and 'SERVO-DRIVE Schalter 23P5020': 'Frequenzband: 2,404 bis 2,452 GHz / Maximale Sendeleistung: +4 dBm / 2,5 mW / Reichweite: typisch 10 m (abhängig von Material und Füllgut) / Übertragungsart: bidirektional, über codierte Telegramme'. BA-139/3 (07.19): 'Frequenz: 2.4 GHz ... Bidirektional, über codierte Telegramme ... typisch 10 m'.",
+   "sources": [
+    "https://www.blum.com/file/kla0031-ba-139_ba_dok_bau?country=de&language=de",
+    "https://webshop.schachermayer.com/cdn/medias/docus/175/webd_Blum_Servodrive_Montageanleitung.pdf"
+   ],
+   "design_impact": "This is a proprietary 2.4 GHz link, not Wi-Fi or a standard BLE profile. The ESP32's own radio will probably need help from an external 2.4 GHz transceiver whose modulation matches (RF angle to determine). 'Bidirectional, coded telegrams' points to IDs, acknowledgements and possibly anti-replay, so simple replay is risky and actuating a genuine switch is lower-risk. A 10 m range means the ESP32 enclosure can sit anywhere in or near the cabinet."
+  },
+  {
+   "claim": "Radio-module IDs per drive generation. Old 21xA drives and the flex receiver Z10C5007 contain module 21.A00L33 (FCC W95-21A00L33, IC 8352A-21A00L33). Revised 21FA00x.22 drives carry FCC W95-21FA00Y (IC 8352A-21FA00Y). HK top 23KA001 contains module 23.A00L83 (FCC W95-23A00L83). HF/HS/HL top 23.A001 is FCC W95-23A001 (IC 8352A-23A001). The flex drive Z10C5000.01 is FCC W95-Z10C5000.",
+   "confidence": "high",
+   "evidence": "BA-139/3 marking page '21xA00y, Z10C5007': 'Constains IC: 8352A-21A00L33 ... Contains FCC ID: W95-21A00L33'. BA-139/7 marking pages: '23KA001 — The drive unit \"23KA001\" contains the radio module \"23.A00L83\". Contains IC: 8352A-23A00L83 ... Contains FCC ID: W95-23A00L83'; '23.A001 — IC: 8352A-23A001 ... FCC ID: W95-23A001'; '21FA000.22, 21FA001.22, 21FA005.22 — IC: 8352A-21FA00Y ... FCC ID: W95-21FA00Y'; 'Z10C5000.01 — IC: 8352A-Z10C5000 ... FCC ID: W95-Z10C5000'. MA-502/3 SDoC: 'Product-Family: 23KA00y | y ∈ {0, 1}, 23.A00L83'.",
+   "sources": [
+    "https://webshop.schachermayer.com/cdn/medias/docus/175/webd_Blum_Servodrive_Montageanleitung.pdf",
+    "https://www.blum.com/file/kla0031-ba-139_ba_dok_bau?country=de&language=de",
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf"
+   ],
+   "design_impact": "These FCC IDs are the full list of grantee-W95 filings to pull internal photos and test reports from (cross-link: FCC/RF angle). The FCC ID on the user's drive tells which receiver the ESP32 radio would have to talk to."
+  },
+  {
+   "claim": "Pairing and reset on the old-generation drive (21xA, HF/HS/HL/HK). Buttons: <Reset Motion>, <SWITCH>, <SYNC>, <COLL>, <Reset Wireless>, plus Motion and Wireless LEDs. To pair: hold <SWITCH> until the LED flashes green, then press the SERVO-DRIVE switch until the LED stays green; repeat for each extra switch. Reset Wireless (at least 3 s with a pen) deletes all paired switches and the sync and collision settings.",
+   "confidence": "high",
+   "evidence": "MA-502/3 EN: 'Button layout ... 2 <Reset Motion> button 3 Motion LED 4 <SWITCH> button 5 <SYNC> button 6 <COLL> button 7 <Reset Wireless> button 8 Wireless LED'. 'A Activating the SERVO-DRIVE switch ... A switch can only be assigned to one drive unit. 1 Press the <SWITCH> button until the LED flashes green. 2 Press the SERVO-DRIVE switch until the LED lights up green continuously. 3 Repeat procedure A 1-2 for additional SERVO-DRIVE switches in the cabinet.' 'F Reset Wireless Deactivates all functions: All active SERVO-DRIVE switches for the respective drive unit are deleted. Press the <Reset Wireless> button using a pen (at least 3 seconds) until the LED flashes quickly.' 'B Starting reference run ... Close the front manually ... Press on front: The reference run starts automatically ... Front opens and closes 2x automatically'. Blum Inc 2014 LED table: Motion LED 'Flashes orange' = reference run required, 'Lights orange continuously' = power available / operating mode, 'Flashes orange quickly' = reference run completed / reset confirmation. Wireless LED 'Flashes green' = activation mode, 'Lights up green continuously' = activation confirmation, 'Flashes green quickly' = deactivation confirmation, 'Lights up continuously red' = last process was not completed successfully.",
+   "sources": [
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf",
+    "https://cdnimages.opentip.com/Docs/HDL/ServoDriveAventos_hl.pdf",
+    "https://www.ballerina.de/media/config/media/content/downloads/montageanleitungen/montage_blum5.pdf"
+   ],
+   "design_impact": "Pairing an extra genuine switch (or a future emulated transmitter) is something the owner can do with a pen, and existing switches keep working. The project docs should warn never to use Reset Wireless, because it wipes every switch plus sync and collision settings and the owner would have to re-teach everything."
+  },
+  {
+   "claim": "Pairing on the top-generation drives (23KA HK top and 23.A HF/HS/HL top). Buttons: <Connect> (link icon), <OK>, <Play/Start> (labelled 'test 2x'), plus 'collision' and 'reset'. Sequence: press Connect (LED flashes), press each SERVO-DRIVE switch in the cabinet (left and right), press OK. Then press Play: the front opens and closes twice (do not touch); OK lit green means success. Reset restores factory settings.",
+   "confidence": "medium",
+   "evidence": "MA-502/3 EN, HK top: 'Button layout 1 Drive unit 2 <Reset> button 3 LED 4 <Collision> button 5 <Play> button 6 <Ok> button 7 <Connect> button 8 SERVO-DRIVE switch'; 'A Activating the SERVO-DRIVE switch — Setting up the wireless connection between the SERVO-DRIVE switch and the drive unit. A switch can only be assigned to one drive unit.' (pictogram steps 1–4: Connect flashes → press switches 1 and 2 → Ok); 'E Reset — Resets the drive unit to the factory setting.' MA-1098 (09.23) pictograms for the HF/HS/HL top drive: steps 4 (link button flashing), 5 (press switch on the carcass side), 6 ('ok' flashing), 7 ('▷' with 'test 2x'), 8 ('2x' motion, hands off), a (OK with check mark); labels 'collision', 'reset'. Blum troubleshooting page: 'the OK key on the SERVO-DRIVE lights up red when the front is open' means replace SERVO-DRIVE for AVENTOS top; manual reference run by 'pressing the \"Reset Motion key\" or the \"Start key\" with the front open'. US brochure 2024: 'Color signals with integrated error recognition support the start-up process.'",
+   "sources": [
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf",
+    "https://www.blum.com/file/cme90761_ma_dok_bau?country=us&language=en",
+    "https://www.blum.com/us/en/landingpages/products/servo-drive/troubleshooting/",
+    "https://www.blum.com/file/cme105764_ep_dok_bus?country=us&language=en"
+   ],
+   "design_impact": "Pairing is a short Connect → press → OK session, so pairing a genuine switch built into the device is easy. An emulated transmitter would also have to answer whatever handshake the drive sends during Connect mode, because the link is bidirectional (RF angle). Firmware docs need separate pairing instructions for the 21FA and the top drives."
+  },
+  {
+   "claim": "Topology limits. A switch can be assigned to one drive only. An old-generation drive accepts up to six switches. Up to three drives can be synchronised (they move together) and up to six can be linked for collision avoidance, so that only one front opens at a time. Drives talk to each other by radio for sync and collision, and the pictograms show an old 21FA drive linked to an HK top drive.",
+   "confidence": "high",
+   "evidence": "Blum Inc 2014/2016: 'Up to six switches can be added per drive unit. NOTE: A switch can only be synchronized to one drive unit'. MA-502/3: 'C Activating synchronisation — Up to three drive units can be synchronised allowing them to move simultaneously'; 'D Activating collision avoidance — To avoid the collision of fronts, drive units (max. 6) can be linked so that only one front can be opened at a time. A front is prevented from opening as long as a linked front remains open.' MA-502/3 p.35 pictograms combine a drive with <SWITCH>/<COLL> buttons ('> 1.5 s') with an HK top drive ('collision' button, 'ok') in one collision-avoidance sequence (my interpretation of the pictograms).",
+   "sources": [
+    "https://cdnimages.opentip.com/Docs/HDL/ServoDriveAventos_hl.pdf",
+    "https://www.woodworkerexpress.com/skin/common_files/files/specs/blum/blum-servo-drive-brochure.pdf",
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf"
+   ],
+   "design_impact": "There is room for an extra switch: typically 2 used out of 6 on the old generation; the top-generation maximum is undocumented. Because collision avoidance makes drives exchange open/closed state over the air, a sniffer might be able to read flap state passively if a linked drive or a virtual one existed (low-confidence lead for the RF angle). On a synchronised flap, pairing to any one drive of the group should move all of them; this is unverified."
+  },
+  {
+   "claim": "Operating semantics. The intended way to open is to press the front; the drive detects the push, which needs the spring-loaded Blum distance bumpers. The radio switch 'triggers opening or closing', i.e. it toggles depending on the current state. Blum's illustrations show the switch only as the close control, but a troubleshooting row and a user report show the switch also opens a closed flap. A lean protection means only a short press triggers the drive.",
+   "confidence": "medium",
+   "evidence": "BA-139/7: 'Über den SERVO-DRIVE-Schalter wird das automatische Öffnen oder Schließen von SERVO-DRIVE für AVENTOS ausgelöst. Druck auf die Front ➢ die Klappe öffnet automatisch; Druck auf den SERVO-DRIVE-Schalter ➢ die Klappe schließt automatisch'; 'SERVO-DRIVE für AVENTOS wird nur durch kurzes Drücken ausgelöst. Wenn Sie sich an der Klappe anlehnen, erfolgt kein Öffnen.' MA-502/3 EN: 'The SERVO-DRIVE switch triggers the automatic opening and closing action of SERVO-DRIVE for AVENTOS.' The troubleshooting table of an older AVENTOS HF manual on manualslib.de includes the row 'SERVO-DRIVE für AVENTOS funktioniert bei Druck auf den SERVO-DRIVE-Schalter, jedoch nicht bei Druck auf die Front.'; the causes listed on that page include 'Blum-Distanzpuffer ... wurde herausgenommen oder ist defekt' (row alignment inferred). woodworker.de, 03.02.2023 (user): 'Ohne Front öffnet der Aventos ohne Probleme beim druck auf den Schalter.' Blum US assembly page: 'The switch used to close the front is attached to the side of the cabinet'. daumemo (HK top, 23P5020): shorting the trigger contacts 'will open/close command to the Blum Servo-drive arm.'",
+   "sources": [
+    "https://www.blum.com/file/kla0031-ba-139_ba_dok_bau?country=de&language=de",
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf",
+    "https://www.manualslib.de/manual/389920/Blum-Aventos-Hf.html?page=10",
+    "https://www.woodworker.de/forum/threads/aventos-hl-servo-drive.125962/",
+    "https://www.blum.com/us/en/products/motion-technologies/servo-drive/servo-drive-aventos/assembly/",
+    "https://daumemo.com/how-do-you-connect-a-blum-servo-drive-to-z-wave-home-assistant-system/"
+   ],
+   "design_impact": "This is the most important consequence of this angle. (a) If the owner opens by pressing the front, no switch radio message is ever sent, so 'catching the OPEN command' over RF is impossible. (b) A switch press carries no explicit open/close meaning. The device therefore needs its own flap-state sensor (reed or Hall sensor on the flap, an IMU, or 24 V motor-current sensing), and it must confirm the flap is still open right before sending the close press. Otherwise a press after a manual close would re-open the flap."
+  },
+  {
+   "claim": "No Blum document for SERVO-DRIVE for AVENTOS describes any automatic close, timer or hold-open function. The only timed behaviour in the SERVO-DRIVE family is the hold-open gap of SERVO-DRIVE flex (fridges and dishwashers): 2.5 s factory setting, selectable 4 s or 8 s.",
+   "confidence": "high",
+   "evidence": "BA-139/7 flex section: 'Durch festes Drücken und Halten des Stößels kann die Dauer der Offenhaltezeit eingestellt werden ... Sie können zwischen drei unterschiedlichen Offenhaltezeiten wählen. 2,5 s (Werkseinstellung)/ 4 s / 8 s'. The AVENTOS sections of BA-139/3, BA-139/7, MA-502/1, MA-502/3, MA-1098 and the Blum Inc 2014/2016 brochures describe only front-press opening, switch triggering, reference run, sync, collision avoidance and reset, with no timer. A German web search for 'automatisch schließen nach Zeit Timer' returned nothing for AVENTOS.",
+   "sources": [
+    "https://www.blum.com/file/kla0031-ba-139_ba_dok_bau?country=de&language=de",
+    "https://webshop.schachermayer.com/cdn/medias/docus/175/webd_Blum_Servodrive_Montageanleitung.pdf",
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf",
+    "https://www.blum.com/file/cme90761_ma_dok_bau?country=us&language=en"
+   ],
+   "design_impact": "The 5-minute auto-close is new functionality and has to run entirely in the ESP32. No Blum configuration can replace it."
+  },
+  {
+   "claim": "Safety behaviour. Collision detection stops opening or closing when the front meets a body part or object, including just after the switch was pressed to close. The flap can always be moved by hand without damage. If power fails during a movement, the flap stops, and pressing the switch puts it back into operation. Duty cycle is S3 5% (max. 10 movements per 10 min).",
+   "confidence": "high",
+   "evidence": "BA-139/7: 'Durch die integrierte Kollisionserkennung wird der Öffnungs- bzw. Schließvorgang automatisch unterbrochen, wenn die Front auf einen Körperteil oder Gegenstand trifft.' 'Befindet sich SERVO-DRIVE für AVENTOS bei einer Netzunterbrechung in Bewegung, bleibt die Klappe stehen. Um SERVO-DRIVE für AVENTOS wieder in Betrieb zu nehmen, betätigen Sie den SERVO-DRIVE-Schalter.' 'Die Klappe kann jederzeit uneingeschränkt manuell geöffnet oder geschlossen werden'. Technical data for 21FA00x and 23.A00x/23KA00x: 'Betriebsart: S3 5 % (max. 10 Bewegungen / 10 min.)'. Blum Inc 2014: 'Even when the switch has just been pressed for closing - the closing procedure is halted immediately if the user again reaches into the cabinet and/or an object is placed between the cabinet and the door.' Blum CH uno page: 'Auch wenn der Schalter zum Schließen bereits gedrückt wurde, stoppt die Klappe zuverlässig – beim geringsten Widerstand.'",
+   "sources": [
+    "https://www.blum.com/file/kla0031-ba-139_ba_dok_bau?country=de&language=de",
+    "https://cdnimages.opentip.com/Docs/HDL/ServoDriveAventos_hl.pdf",
+    "https://www.blum.com/ch/de/produkte/bewegungstechnologien/servo-drive/servo-drive-uno-aventos/programm/"
+   ],
+   "design_impact": "Firmware should check with the sensor that the flap actually closed after the auto-close press. If it did not (something in the way), allow at most one retry, never loop, and stay within 10 movements per 10 min. After a mains interruption the first press may only re-activate the drive, so re-check state before pressing again. An optional 'someone is here, postpone closing' input (PIR, or a long-press on a button) would be a sensible extra, given Blum's child-safety warnings."
+  },
+  {
+   "claim": "Feedback is by LEDs only; no document mentions a beeper. Switch: CR2032 (3 V lithium), battery LED flashes red when the battery is low and lights red if it is inserted the wrong way round; 23P5020 adds a Connect LED. Rated current 10 mA. BA-139/7 also states a standby power of 1 W, which is implausible for a coin cell and probably a documentation error. Drives have status LEDs (see the pairing findings).",
+   "confidence": "high",
+   "evidence": "BA-139/7: 'Betrieben wird der SERVO-DRIVE-Schalter durch eine Batterie (CR2032) ... 1 Batterieanzeige (LED) 2 Connect (LED) ... Wenn die Batteriekapazität nachläßt, blinkt die Batterieanzeige (LED) rot ... Wenn die Batterie falsch eingelegt wurde, leuchtet die Batterieanzeige des SERVO-DRIVE-Schalters rot.' Technical data: 'SERVO-DRIVE Schalter 23P5020 Versorgungsspannung: 3,0 V Lithium Knopfzelle CR2032 Bemessungsstrom: 10 mA Leistungsaufnahme im Standby: 1 W'. Blum troubleshooting: 'If the SERVO-DRIVE switch does not light up red' → battery dead. MA-502/3 says the incorrectly inserted battery 'will flash red' (a minor inconsistency between documents).",
+   "sources": [
+    "https://www.blum.com/file/kla0031-ba-139_ba_dok_bau?country=de&language=de",
+    "https://www.blum.com/us/en/landingpages/products/servo-drive/troubleshooting/",
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf"
+   ],
+   "design_impact": "A genuine switch inside the device can be fed from the ESP32's 3.3 V rail in place of the CR2032; daumemo ran it at 3.34 V. Budget at least 10 mA peak. The switch LEDs could be read with a GPIO or phototransistor to confirm a press was acknowledged (inference). The device should give its own feedback (LED/buzzer) for 'auto-close armed / closing now', because Blum's system makes no sound."
+  },
+  {
+   "claim": "Power supplies and cabling (all 24 V DC SELV).\n- Current: Z10NE040 family Z10NE04xy (72 W, 3.0 A, made by FSP Group, needs an earthed socket) and plug-in Z10NA40xy (24 W, 1.0 A, 'only suitable for one drive unit', total cable at most 2 m).\n- Earlier: Z10NE030x (24 W, 1.0 A) with separate mains cords Z10M200x; 12 W plug-in Z10NA300 / Z10NA30xyF (the 'uno' supply, 0.5 A); old US Z10NE020G (72 W) and set Z10NE02UG10.\n- Accessories: wall holder Z10NG120 (a holder, not a power supply), distribution cable Z10K800AE (8 m, cut to length, piercing contacts), connecting node Z10V100E.01, cable holder Z10K0009.\n- Only one power supply per distribution cable, and Blum forbids connecting non-Blum devices.\n- Drive standby power: 0.22 W (21FA00x), 0.15 W (23.A001), 0.40 W (23KA001); rated current 2.0 A.",
+   "confidence": "high",
+   "evidence": "BA-139/7: 'SERVO-DRIVE-Netzteil Z10NE040 ... Ausgangsspannung 24,0 V DC Ausgangsstrom 3,0 A Ausgangsleistung 72,0 W'; 'SERVO-DRIVE-Steckernetzteil Z10NA40x* ... 24,0 V DC 1,0 A 24,0 W'; 'Die Gesamtlänge des Kabels bei den SERVO-DRIVE-Steckernetzteil Z10NA40x* darf zwei Meter nicht überschreiten'; 'Das SERVO-DRIVE-Netzteil mit Funktionserde muss an eine Steckdose mit Erdungsanschluss angeschlossen werden'; 'Schließen Sie am SERVO-DRIVE-Netzteil keine anderen Geräte als die dafür vorgesehenen SERVO-DRIVE-Komponenten an'; standby figures '0,22 W', '0,15 W (23.A001)', '0,40 W (23KA001)'. FSP DoC: 'Product Name: Switching Power Adapter Model Number: Z10NE040'. AVENTOS top ordering info: '3 SERVO-DRIVE-Steckernetzteil Nur für eine Antriebseinheit geeignet', 'Netzteilhalterung Wandmontage WGR Z10NG120', 'Z10K800AE' (8 m), 'Z10V100E.01', 'Z10K0009', 'Pro SERVO-DRIVE-Verteilerkabel darf nur ein SERVO-DRIVE-Netzteil angeschlossen werden!'. BA-139/3: 'Blum-Netzgerät 24 W ... 24 VDC ... 1.0 A'; '12 W ... 0.5 A'. Lignoshop 2017 ordering info: 'Blum-Netzgerät 24 W Z10NE030A ... Z10NE030H', 'Netzkabel ... Z10M200E ... Z10M200U ... Z10M200B', 'Blum-Steckernetzteil 12 W ... Nur für Einzelanwendungen ... Z10NA30xyF'. Blum Inc 2014: 'Power supply Z10NE020G ... Output power max. 72 W ... Can power up to 8 drive units'; the 2016 brochure says 'up to 16 drive units' (conflict).",
+   "sources": [
+    "https://www.blum.com/file/kla0031-ba-139_ba_dok_bau?country=de&language=de",
+    "https://www.blum.com/file/cme108516_zf_dok_bau?country=de&language=de",
+    "https://www.lignoshop.de/out/media/aventos-top-info.pdf",
+    "https://webshop.schachermayer.com/cdn/medias/docus/175/webd_Blum_Servodrive_Montageanleitung.pdf",
+    "https://www.lignoshop.de/out/media/aventos_servodrive_netzgeraet_zubeh.pdf",
+    "https://cdnimages.opentip.com/Docs/HDL/ServoDriveAventos_hl.pdf",
+    "https://www.woodworkerexpress.com/skin/common_files/files/specs/blum/blum-servo-drive-brochure.pdf"
+   ],
+   "design_impact": "The compliant route is a separate 5 V USB supply for the ESP32. Taking 24 V from the distribution cable through a Z10V100E.01 piercing node plus a buck converter is technically easy, but it breaks Blum's 'no other devices' rule and may void the 5-year drive/power-supply warranty; on a Z10NA40 'single-drive' plug-in supply it also eats into a 24 W budget. A current sensor in series with the drive lead could detect motion of any kind, because the drive idles at 0.15–0.4 W and is rated 2 A, making it a cheap 'flap moved' signal (inference)."
+  },
+  {
+   "claim": "EU/UK/US part-number differences. Drive units and switches use the same numbers worldwide (21FA000, 23.A000, 23KA000, 23P5020), and their labels carry EU, US/CA, AU and other marks together. Region coding appears only on power supplies and cords. Current scheme Z10NE04xy and Z10NA40xy: x = market (E Europe, B UK, U US/CA, K AU, H IN, I IL, N CN, R KR, S BR, T TW, Z ZA), y = language pack. Older scheme: separate cords Z10M200x and plug-ins Z10NA30xyF (for example Z10NA30BAF UK, Z10NA30UGF US). US cover sets carry a '.NA' suffix, and the US sold 21P5020 as a 2-pack.",
+   "confidence": "high",
+   "evidence": "AVENTOS top ordering info: 'Märkte: E Europa, B UK, H IN, I IL, K AU, N CN, R KR, S BR, T TW, U US | CA, Z ZA'; supplies 'Z10NE04EA ... Z10NE04BA, Z10NE04BI ... Z10NE04UG, Z10NE04UJ' and 'Z10NA40EA ... Z10NA40BA ... Z10NA40UG, Z10NA40UJ'. Blum 2022 catalogue p.570: 'Z10NA30EAF ... Z10NA30BAF ... Z10NA30KDF ... Z10NA30UGF'. Blum Inc uno flyer: 'SERVO-DRIVE uno power supply Z10NA30UGF'. BA-139/7 marking pages: the same article page lists 'European Union, EFTA, United Kingdom, Turkey, Montenegro', 'United States of America, Canada' (FCC ID) and 'Australia, New Zealand' marks. Blum Inc 2016: 'Cover set 21F8000.NA', '21S8000.NA', '21L8000.NA', '21K8000.NA'.",
+   "sources": [
+    "https://www.lignoshop.de/out/media/aventos-top-info.pdf",
+    "https://publications.blum.com/2022/catalogue/en/570/",
+    "https://www.blum.com/file/sdrunoavt_fl_dok_bus?country=us&language=en",
+    "https://www.blum.com/file/kla0031-ba-139_ba_dok_bau?country=de&language=de",
+    "https://www.woodworkerexpress.com/skin/common_files/files/specs/blum/blum-servo-drive-brochure.pdf"
+   ],
+   "design_impact": "A spare switch has the same part number in every region. Only the power-supply route (tapping 24 V vs. separate supply) and the mains-plug details depend on the owner's country. RF limits (EN 300 440 / FCC Part 15) matter only if the device transmits on its own instead of pressing a genuine switch."
+  },
+  {
+   "claim": "Switch mounting geometry. Press-fit into a Ø35 mm bore whose centre is 12 ±0.3 mm from the front edge of the carcass side, so the bore breaks out through that edge. Depth 11 (+0.5/0) mm; centre 30–90 mm above the bottom panel. Fitted on both carcass sides near the bottom front, pressed in by hand, never hammered. Boring template M31.2000.",
+   "confidence": "high",
+   "evidence": "AVENTOS top ordering info, p.18 'SERVO-DRIVE-Schalter' drawing: '12 ±0.3', 'Ø35', '11 +0.5/0', 'min 30 - max 90'. Blum DE program page: 'Dieser Schalter wird an beiden Korpusseiten im unteren Bereich in die dafür vorgesehene [35-mm-]Bohrung gedrückt.' Blum US assembly page: 'It is simply pressed into a 35 mm hole.' Blum Inc 2014: 'The activation switch should be installed by pressing into the cabinet side with your hand. Do not use hammer to install ... boring template (M31.2000)'. Blum troubleshooting lists 'bumpers pressing directly on the wireless switch' as a cause of malfunction.",
+   "sources": [
+    "https://www.lignoshop.de/out/media/aventos-top-info.pdf",
+    "https://www.blum.com/de/de/produkte/bewegungstechnologien/servo-drive/servo-drive-aventos/programm/",
+    "https://www.blum.com/us/en/products/motion-technologies/servo-drive/servo-drive-aventos/assembly/",
+    "https://cdnimages.opentip.com/Docs/HDL/ServoDriveAventos_hl.pdf",
+    "https://www.blum.com/us/en/landingpages/products/servo-drive/troubleshooting/"
+   ],
+   "design_impact": "OpenSCAD: a genuine 23P5020 can be held in a Ø35 × 11 mm press-fit pocket in the enclosure, like a hinge-cup recess. A non-invasive 'button presser' (servo or solenoid over an untouched switch) is also possible. Keep the device's switch away from where the front's bumpers could press it by accident."
+  },
+  {
+   "claim": "How to identify the generation on site.\n(1) Drive unit, clipped to the left lift mechanism: white label with article number (21FA…/21KA…, 23KA…, 23.A…), serial BAUxxxxxxx and FCC ID (W95-21A00L33 / W95-21FA00Y / W95-23A00L83 / W95-23A001).\n(2) Drive buttons: <Reset Motion>/<SWITCH>/<SYNC>/<COLL>/<Reset Wireless> means the old 21xA; <Connect>/<OK>/<Play 'test 2x'> plus 'collision'/'reset' means the top generation.\n(3) Switch: battery LED only (21P5020) vs round button with battery and Connect LEDs (23P5020); label on the back of the switch body.\n(4) Power supply label: Z10NE0…/Z10NA… plus serial (BN… or SN…).\n(5) AVENTOS top lift mechanisms have slim cover caps with a separate branding element; this visual cue is less certain.",
+   "confidence": "high",
+   "evidence": "BA-139/3 spare-parts form: 'Artikelnummer und Chargennummer des defekten SERVO-DRIVE-Bauteils: Blum-Netzgerät Z10N… BN… / Blum-Steckernetzgerät Z10N… BN… / Antriebseinheit 21… BAU… / Antriebseinheit 23… BAU… / SERVO-DRIVE-Schalter 21 | 23… BAU… / Funkempfänger Z10C5007 BAU…', with photos 'Hier finden Sie die Artikelnummer und die Chargennummer' showing the label on the back of the switch. Blum warranty: 'a picture of the white label on the drive unit and/or the power supply'. Blum support on woodworker.de (11.10.2023): 'Schick uns hier bitte ein Foto des Etiketts auf der AVENTOS SERVO-DRIVE.' US parts form: 'Power Supply Z10NE / Z10NA ... SN ... Drive Unit Z10A, 21 ... BAU'. Button layouts as quoted from MA-502/3 and MA-1098. AVENTOS top cover cap set 23.8000: '4c 2 x Branding-Element, geprägt mit Blum-Logo'.",
+   "sources": [
+    "https://webshop.schachermayer.com/cdn/medias/docus/175/webd_Blum_Servodrive_Montageanleitung.pdf",
+    "https://www.blum.com/file/sdwarrantyinfo_ge_dok_bus?country=us&language=en",
+    "https://www.woodworker.de/forum/threads/aventos-servo-drive-funktioniert-nicht-mehr.129230/",
+    "https://www.blum.com/file/sdpartsform_ge_dok_bus?country=us&language=en",
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf",
+    "https://www.blum.com/file/cme90761_ma_dok_bau?country=us&language=en",
+    "https://www.lignoshop.de/out/media/aventos-top-info.pdf"
+   ],
+   "design_impact": "Three photos from the owner (drive label, drive buttons, back of the switch) settle the generation and switch revision. Get them before choosing an RF chip or committing to the genuine-switch actuator."
+  },
+  {
+   "claim": "SERVO-DRIVE uno for AVENTOS is the same AVENTOS drive and switch, powered by the plug-in supply (12 W Z10NA300/Z10NA30xyF, now 24 W Z10NA40xy) for a single drive; old HK needed a special drive with adapter plate. SERVO-DRIVE flex (fridge/dishwasher, drives Z10C5000/Z10C500A) uses the same 23P5020 switch, through the receiver Z10C5007 or, from 2025, a receiver built into the drive. Drawer SERVO-DRIVE (Z10A3000.xx) uses no radio switch.",
+   "confidence": "high",
+   "evidence": "Blum Inc uno flyer: 'Powered by the Blum power supply (12 W) ... SERVO-DRIVE uno power supply Z10NA30UGF ... Can only be used for individual applications; for multiple drive units the Blum transformer (24 W) must be used ... Compatible with these AVENTOS models: AVENTOS HF, HS, HL, HK'. BA-139/3 orientation graphic 'SERVO-DRIVE für AVENTOS / SERVO-DRIVE uno für AVENTOS ... 3a Blum-Netzgerät 24 Watt 3b Blum-Steckernetzgerät 12 Watt 4 SERVO-DRIVE-Schalter'. Blum AT uno page: 'Für AVENTOS HK wird eine spezielle Antriebseinheit mit Adapterplatte benötigt.' Flex ordering info (2025): 'SERVO-DRIVE-Schalter ... SW/HGR/TGR K 23P5020'. trade-hinges: 'For this wireless receiver Z10C5007 is required'. Blum press release (May 2025), flex section: 'der dazu notwendige Funkempfänger ist nunmehr fest in die Antriebseinheit integriert'.",
+   "sources": [
+    "https://www.blum.com/file/sdrunoavt_fl_dok_bus?country=us&language=en",
+    "https://webshop.schachermayer.com/cdn/medias/docus/175/webd_Blum_Servodrive_Montageanleitung.pdf",
+    "https://www.blum.com/at/de/produkte/bewegungstechnologien/servo-drive/servo-drive-uno-aventos/verarbeitung-montage/",
+    "https://www.lignoshop.de/out/media/info-servo-drive-flex.pdf",
+    "https://www.trade-hinges.co.uk/servo-drive-flex-switch-1977-p.asp",
+    "https://www.blum.com/de/de/unternehmen/presse/pressemeldungen-detail_94208.html"
+   ],
+   "design_impact": "An 'uno' installation (plug-in supply, single drive) behaves the same for this project, but it has little spare supply capacity, so avoid tapping 24 V there. The flex receiver Z10C5007 contains the same radio module as the old AVENTOS drives (W95-21A00L33), which makes it a cheap genuine receiver for bench-testing an RF approach (inference)."
+  },
+  {
+   "claim": "No wired trigger or control input is documented for any SERVO-DRIVE for AVENTOS drive. The only wired system accessories are the SERVO-DRIVE earthquake shock sensor Z10ZE000, which shuts drives off and gives no trigger, and the COMBOX, which is for drawer drives (Z10A3000.02) only. The scout's 'Z10NA/Z10NE are power supplies' is confirmed; Z10NG120 is a power-supply wall holder, not a power supply.",
+   "confidence": "medium",
+   "evidence": "EU DoC cme91302: 'Produkt-Typ: Z10ZE000 (SERVO-DRIVE Erschütterungs-Sensor) ... elektronische Steuerung zur Abschaltung von Blum SERVO-DRIVE Antriebseinheiten bei Erdbeben'. BA-139/7: 'Alle SERVO-DRIVE-Antriebseinheiten, die COMBOX und der Erschütterungssensor sind Schutzklasse-III-Geräte'. A Blum leaflet in search results ('+ COMBOX Z10ZC00A Z10A3000.02') limits the COMBOX to the drawer drive. The pairing sections of MA-502/1, MA-502/3, MA-1098, BA-139/3 and BA-139/7 mention only the radio switch and front press as triggers. AVENTOS top ordering info: '2 Netzteilhalterung Wandmontage ... Z10NG120 ... Für SERVO-DRIVE-Netzteil'.",
+   "sources": [
+    "https://www.blum.com/file/cme91302_zf_dok_bau?country=de&language=de",
+    "https://www.blum.com/file/kla0031-ba-139_ba_dok_bau?country=de&language=de",
+    "https://d2.blum.com/services/BEC003/box0046-fl-166_fl_dok_bau_$sen-in_$aof_$v1.pdf",
+    "https://www.lignoshop.de/out/media/aventos-top-info.pdf"
+   ],
+   "design_impact": "There is no official hook for an external controller. Actuation must go through the radio: either a genuine switch whose button contacts the ESP32 drives (as daumemo did), or an emulated transmitter. Flap state must come from the device's own sensor or from current sensing."
+  }
+ ],
+ "negative_results": [
+  "Timer/auto-close: read every AVENTOS section of BA-139/3 (07.19), BA-139/7 (11.25), MA-502/1 (11.16), MA-502/2 (09.19), MA-502/3 (10.20), MA-1098 (09.23) and the Blum Inc 2014/2016 brochures, and searched in German ('Blum SERVO-DRIVE AVENTOS Klappe automatisch schließen nach Zeit Timer Funktion'). No automatic close or timer exists for AVENTOS; only SERVO-DRIVE flex has hold-open times (2.5/4/8 s).",
+  "Audible feedback: no beeper or buzzer is mentioned in any of these documents; feedback is LEDs only.",
+  "Wired input: no wired trigger/control input for AVENTOS drives in any opened document. The only wired accessories found are Z10ZE000 (earthquake cut-off) and COMBOX (drawer drives only).",
+  "'21HA000' (named in the task) appears in none of the Blum DoCs or manuals opened. The DoCs list only 21FA, 21LA, 21SA and 21KA (plus 23KA and 23.A).",
+  "No SERVO-DRIVE for AVENTOS HK-S, HK-XS or HKi on Blum's DE program page (it lists only HF top/HS top/HL top, HK top and HF/HS/HL).",
+  "No official Blum sentence says explicitly that pressing the switch on a closed flap opens it. Blum says only 'triggers opening or closing', and its illustrations show the switch closing. The opening behaviour rests on a troubleshooting row and a user report.",
+  "fccid.io/W95, electric.garden (23A001 page) and device.report/blum/23p5020 returned HTTP 403. The official FCC EAS GenericSearch (grantee W95) returned 'Access Denied' to an automated request. Not circumvented; FCC IDs were taken instead from Blum's own marking pages in BA-139/3 and BA-139/7.",
+  "Häfele PDFs (haefele.de/.at ins-doc-04178286, man-doc-04178955, 01843780) sit behind a Cloudflare 'Just a moment' challenge. Richelieu PDFs returned ECONNRESET or empty, manualzz 4563626 returned 403, and Blum's US SERVO-DRIVE AVENTOS overview page returned 403. Not circumvented.",
+  "The search engine claimed a quote 'Die Klappe kann automatisch geöffnet werden, indem Sie die Front oder den Blum-Schalter drücken'. An exact-phrase search found no such sentence in any source, so it is treated as an unverified paraphrase.",
+  "The shared WebSearch budget (200 per turn) ran out partway through this task. Searches I could not run: what 21LA/21SA were (dedicated HL/HS drives or regional variants), the maximum number of switches per top-generation drive, and Blum's own 23P5020 compatibility statement."
+ ],
+ "open_questions": [
+  "What is the maximum number of switches per top-generation drive (23.A/23KA)? Six is documented only for the old 21xA generation.",
+  "Does a switch telegram carry explicit OPEN/CLOSE information or only a 'button pressed' event? Does the drive transmit anything when opened by pressing the front, at least when sync or collision avoidance is configured? (RF angle)",
+  "Do 23P5020 hardware revisions W95-23P502L00 and W95-23P502L00-01 (and the old 21P502L00 PCB) differ in radio chip or protocol? (FCC internal-photos angle)",
+  "Does an old 21P5020 (PCB 21P502L00) pair with the top drives (23.A/23KA)? The compatibility statement found covers only the other direction (23P5020 works with all modules).",
+  "On synchronised drives, must an extra switch be paired to a particular drive, and does one press move the whole group?",
+  "After a power cut, does the first switch press only re-activate the drive or does it also move the flap?",
+  "What does the drive do if the S3 duty cycle (10 movements/10 min) is exceeded: thermal lockout, ignore presses, error LED?",
+  "What exactly were 21LA000/21SA000? They appear in the MA-502/3 DoC, but US brochures use 21FA000 for HF, HS and HL.",
+  "How many drives can one Z10NE040 (72 W) supply feed? Blum Inc gives 8 (2014) and 16 (2016) for Z10NE020G, and no figure was found for Z10NE040."
+ ],
+ "questions_for_user": [
+  "Which lift type is it: HF (bi-fold), HS (up-and-over), HL (lift-up parallel) or HK (stay lift / tilting flap)? Please send a photo of the open mechanism with its cover cap.",
+  "Please photograph the white label on the SERVO-DRIVE drive unit, which is clipped to the left lift mechanism. It shows the article number (21FA…/23KA…/23.A…), the serial BAU… and the FCC ID.",
+  "Which buttons does the drive unit have: <SWITCH>/<SYNC>/<COLL>/<Reset Motion>/<Reset Wireless>, or <Connect>/<OK>/<Play 'test 2x'> with 'collision'/'reset'?",
+  "Pull the radio switch out of its 35 mm hole and photograph the label on its back (21P5020 or 23P5020, and the FCC ID: W95-21P5020, W95-23P502L00 or W95-23P502L00-01). Does the front show only a battery LED, or a battery LED and a Connect LED? How many switches does the cabinet have, and what colour are they?",
+  "How do you normally open the flap: by pressing the front panel, or with the radio switch? Should the 5-minute auto-close also apply when the flap was opened by touching the front?",
+  "Is this one cabinet with one drive, or are several drives synchronised or linked for collision avoidance with neighbouring cabinets?",
+  "What does the power-supply label say (Z10NE0…, Z10NE04…, or a plug-in Z10NA…)? Is there a free mains socket nearby, or would you rather power the ESP32 from the Blum 24 V cable, which goes against Blum's instructions and may affect the warranty?",
+  "Which country or region is this (EU, UK, US/CA, other)? About when was the cabinet bought or installed?",
+  "Are you willing to buy a spare 23P5020 switch (about €40–55) to wire into the device, and to open it (no Blum warranty on modified parts)?"
+ ]
+}

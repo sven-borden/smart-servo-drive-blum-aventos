@@ -1,0 +1,401 @@
+{
+ "angle": "Non-RF and hybrid approaches: flap state sensing, actuation without protocol knowledge (opto or PhotoMOS across a 23P5020 button, mechanical pusher), firmware patterns (ESPHome, Arduino, ESP-IDF), safety and UX, and norms",
+ "summary": "A proven, low-risk non-RF path exists. Pair a second 23P5020 to the drive: Blum allows up to six switches per drive unit, and the 23P5020 is sold as a set of two. Drive its button with an isolated contact (PhotoMOS or PC817) from an ESP32. Daumemo did this on an AVENTOS HK top: 3.3 V fed to the switch PCB, two button pads shorted for 0.8 s through a Fibaro potential-free output, and it opens or closes the flap. Daumemo's annotated PCB photo shows the button sits between an MCU input and a Vcc rail ('maybe 1.8 V'). Driving the pad low with a GPIO or an N-MOSFET to GND, as in Somfy hacks, is therefore unsuitable; a floating contact is required. The press is state-dependent (a toggle). Blum also says the flap normally opens by touching the front, with no switch telegram, and can always be moved by hand. So a non-contact flap sensor is mandatory, both as the timer trigger and as confirmation after each press. The best fit is a reed switch and magnet at the closing edge, which works for HK, HF, HS and HL. A ToF sensor can serve as an independent check. An accelerometer fails on HL, because the front stays parallel. ESPHome has every primitive needed for the state machine (script mode restart, async delay, wait_until with timeout, binary-sensor filters, template number with restore_value, LD2410, RTTTL, INA2xx). For standalone use, its default 15-min api and wifi reboot timeouts must be disabled. Safety: keep Blum's collision detection intact. Add an audible and visual warning of at least 5 s before any unattended close (the 16 CFR 1211.14 garage-door pattern), postpone on presence, provide cancel and disable controls, allow one retry and then latch a fault. Respect the HK top duty rating (S3 5%, max 10 movements per 10 min) and the post-power-loss rule (press the switch to resume). On norms, IEC 60335-2-116:2025 explicitly covers motorized storage and kitchen units and motorized doors, and Blum's 23.A000/23.A001 declaration cites EN 60335-1 plus machinery standards (EN ISO 12100, 13849, 14118). Major cross-link: an open-source ESP32 + nRF24L01 library (Port-Net/BlumServoDrive) claims pairing, explicit open/close commands and OPEN/CLOSE state events. The RF angle should verify it, because it could make a hybrid design (RF for command and state, reed for ground truth) superior. The web-search budget ran out before ceiling-fan remote examples could be searched.",
+ "findings": [
+  {
+   "claim": "Prior art shows a Blum 23P5020 can be actuated with no protocol knowledge: remove the CR2032, feed about 3.3 V to the switch PCB, and short two button pads with an isolated contact for 0.8 s. The same press opens or closes an AVENTOS HK top SERVO-DRIVE.",
+   "confidence": "medium",
+   "evidence": "daumemo (2026): 'Blum HK Top Aventos with Servo-drive, mainly the wireless trigger switch 23P5020 and a bumper 993.0530'. 'Originally it is povered by a Li-Ion 3V coin cell' / 'The battery won't be used anymore'. 'Two of those pins (red and blue in the photo) are power and two other (green and orange) are used to short the trigger button, so it will open/close command to the Blum Servo-drive arm'. 'the output of the brown wire is 3.34 V (measured with a multi-meter) ... it was successfully used connecting it to the BLUM wireless switch'. 'Parameter 156 – set to 8 (0.8 seconds) ... to imitate the push button press'. 'the cabinet door can be opened or closed from an automation of your Home-Assistant instance'. Assembly caveat: 'if you try to insert the button extention after closing the cover – the soldered wires will block the trigger'. Tested with HA core 2025.1.5 and 2026.1.0.",
+   "sources": [
+    "https://daumemo.com/how-do-you-connect-a-blum-servo-drive-to-z-wave-home-assistant-system/",
+    "https://daumemo.com/wp-content/uploads/2026/02/Blum-Aventos-Trigger-connection-to-Fibaro-Smart-Implant-using-one-PSU.png"
+   ],
+   "design_impact": "This is the baseline non-RF actuator: four wires to a spare 23P5020 plus one floating, ESP32-driven contact. Start the pulse at daumemo's 0.8 s and make it tunable in the range 0.3-0.8 s. Route the wires so the switch's grey button extension still seats, which keeps manual pressing possible. It needs no knowledge of the RF protocol, its coding or its pairing."
+  },
+  {
+   "claim": "The 23P5020 button is a high-side switch between an MCU input and an internal Vcc rail (annotated 'maybe 1.8 V'). Pulling the pad to GND with a GPIO or an N-MOSFET, the usual Somfy and garage-remote trick, will not emulate a press. A floating contact (PhotoMOS, phototransistor opto, reed relay) is required.",
+   "confidence": "medium",
+   "evidence": "daumemo's annotated PCB photo labels the pads '+3 V' (red), 'GND' (blue), 'Button to MCU' (green) and 'Button to Vcc (maybe 1.8 V)' (orange). PCB silkscreen reads 'JX02 94V-0 1422'. For contrast, the Somfy hacks pull the pad low: tomstiani says a pin 'pulled LOW to simulate a press' (OUTPUT_OPEN_DRAIN + inverted); agvdberg says 'connecting the copper circle to ground' simulates a press.",
+   "sources": [
+    "https://daumemo.com/wp-content/uploads/2026/02/DSC00074_Blum_view1_schematic0_wm.jpg",
+    "https://daumemo.com/wp-content/uploads/2026/02/Blum-HK-Top-Aventos-soldered-pinout-wires-for-connecting-to-Fibaro-Smart-Implant-Z-wave.jpg",
+    "https://tomstiani.com/projects/esp32-blinds-controller",
+    "https://github.com/agvdberg/SomfyIO_ESPHome_HomeAssistant"
+   ],
+   "design_impact": "Wire a PhotoMOS output (or an opto with collector on the 'Button to Vcc' pad and emitter on the 'Button to MCU' pad) directly across the two button pads. Do not wire a GPIO straight to the pads: the logic domain is unknown (about 1.8 V) and it would need a shared GND. Measure the pad voltages and polarity first, both on battery and on external supply."
+  },
+  {
+   "claim": "For switching this low-voltage button, a PC817-class phototransistor works if the polarity is right. A PhotoMOS is preferable: no polarity, no saturation offset, and small off-state leakage.",
+   "confidence": "medium",
+   "evidence": "Sharp PC817 datasheet values (search snippets): ICEO max 100 nA at VCE = 20 V; VCE(sat) 0.1 V typ / 0.2 V max at IF = 20 mA, IC = 1 mA; CTR 50-600% at IF = 5 mA, VCE = 5 V. Panasonic AQY212S listing: SOP-4, 60 V load voltage, 500 mA load current. AQY21xS datasheet excerpt: 'recommendable LED forward current IF = 5mA'. AQY210S listing gives a 1 µA leakage figure.",
+   "sources": [
+    "https://mm.digikey.com/Volume0/opasdata/d220001/medias/docus/8886/PC817X.pdf",
+    "https://www.distrelec.ch/en/photomos-relay-photomos-aqy-sop-1no-60v-500ma-smd-panasonic-aqy212s/p/11087202",
+    "https://dk.farnell.com/en-DK/panasonic/aqy210s/relay-photomos-spno/dp/3105313"
+   ],
+   "design_impact": "BOM: one SOP-4 PhotoMOS (AQY21x, TLP222A or G3VM class), driven from an ESP32 GPIO through about 390 Ohm (IF about 5 mA). A PC817 or TLP291 through about 680 Ohm is the fallback. On a 1.8 V rail, 0.2 V of PC817 saturation still leaves about 1.6 V at the MCU pin. Add a 10-100 kOhm pull-down on the GPIO side."
+  },
+  {
+   "claim": "The daumemo build effectively used an isolated solid-state contact: the Fibaro Smart Implant outputs are potential-free. Fibaro's own manual documents this impulse-contact technique for gate openers.",
+   "confidence": "high",
+   "evidence": "Fibaro FGBS-222 manual, Specifications: 'Outputs: 2 potential-free outputs'; 'Maximum current on outputs: 150mA'; 'Maximum voltage on outputs: 30V DC / 20V AC ±5%'; 'Power supply 9-30V DC ±10%'. Section 4.9 'Connection with gate opener': 'connected to gate opener with impulse input (every impulse will start and stop the gate motor, alternately opening/closing)', 'Change parameter 156 to 1 (0.1s)'. daumemo: 'the trigger button has a direct connection to Fibaro Smart Implant's output channel'.",
+   "sources": [
+    "https://www.montersi.pl/instrukcje/FGBS-222_Instrukcja%20obs%C5%82ugi.pdf",
+    "https://daumemo.com/how-do-you-connect-a-blum-servo-drive-to-z-wave-home-assistant-system/"
+   ],
+   "design_impact": "An ESP32 plus a PhotoMOS reproduces the daumemo electronics without Z-Wave. Impulse lengths from 0.1 s (Fibaro gate example) to 0.8 s (daumemo) are known to work in similar contexts, so expose the pulse width as a constant or number entity."
+  },
+  {
+   "claim": "A second, sacrificial switch can be paired to the same drive. Blum allows up to six switches per drive unit, each switch pairs to only one drive, and the 23P5020 is sold as a set of two.",
+   "confidence": "high",
+   "evidence": "Blum SERVO-DRIVE for AVENTOS brochure (2016): 'SERVO-DRIVE switch: For adding additional activation switches to a SERVO-DRIVE for AVENTOS application. Up to six switches can be added per drive unit. NOTE: A switch can only be synchronized to one drive unit'; sets include 'SERVO-DRIVE switches (qty 2)'. E.B. Bradley listing: 'Blum SERVO-DRIVE for AVENTOS Switch Set | Light Gray | 23P5020', 'Includes: (2) SERVO-DRIVE for AVENTOS Switches', series 'AVENTOS HK top, AVENTOS HF top, AVENTOS HL top, AVENTOS HS top'. Blum MA-502/1DE 11.16: 'Ein SERVO-DRIVE-Schalter kann jeweils nur mit einer Antriebseinheit aktiviert werden! 1 Taste <SWITCH> drücken, bis LED-Anzeige grün blinkt. 2 SERVO-DRIVE-Schalter drücken, bis LED-Anzeige durchgängig grün leuchtet. 3 Vorgang A 1–2 mit allen weiteren SERVO-DRIVE-Schaltern im Korpus wiederholen.' The HK top drive (MA-502/3 10.20) has different buttons: '<Reset>', '<Collision>', '<Play>', '<Ok>', '<Connect>'. Switch data (BA-139/3 07.19): 'Frequenz: 2.4 GHz', 'Bidirektional, über codierte Telegramme', 'Reichweite: typisch 10 m (abhängig von Material und Füllgut)', 'Batterieversorgung: 3 V Lithium Knopfzelle CR2032'.",
+   "sources": [
+    "https://www.woodworkerexpress.com/skin/common_files/files/specs/blum/blum-servo-drive-brochure.pdf",
+    "https://cdnimages.opentip.com/Docs/HDL/ServoDriveAventos_hl.pdf",
+    "https://www.ebbradley.com/b23p5020-lg.html",
+    "https://www.ballerina.de/media/config/media/content/downloads/montageanleitungen/montage_blum5.pdf",
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf",
+    "https://webshop.schachermayer.com/cdn/medias/docus/175/webd_Blum_Servodrive_Montageanleitung.pdf"
+   ],
+   "design_impact": "Leave the owner's switch untouched. Use a spare 23P5020 and pair it before opening it; compare the Somfy IO advice 'You must program the Somfy remote before taking it out of the case'. Embed it in the plastic ESP enclosure within about 10 m of the drive, away from metal. Document re-pairing, because Blum's Reset Wireless deletes all paired switches."
+  },
+  {
+   "claim": "Replacing a remote's coin cell with an external supply works on some boards and fails on others. Keeping the CR2032 and only paralleling the button with an isolated switch avoids that risk.",
+   "confidence": "medium",
+   "evidence": "daumemo: 3.34 V from the Fibaro sensor supply was 'successfully used'. tomstiani (Telis 4 RTS + ESP32-C6): removed the coin cell and fed it from the ESP32 3.3 V rail; pads measured 3.32 V but 'the remote just stopped working'; suspected switching-regulator noise; final build keeps the original CR2430. agvdberg Somfy IO: 'Battery(+)' -> '3V3' and 'Battery(-)' -> 'GND' works. techbotch, Hörmann HS5 BiSecur: AAA removed, LM317 at about 1.5 V ('Der Handsender ist 1.5V gewöhnt', 1.508 V measured). Energizer CR2032: 'Nominal Voltage: 3.0 Volts Typical Capacity: 235 mAh (to 2.0 volts)'.",
+   "sources": [
+    "https://daumemo.com/how-do-you-connect-a-blum-servo-drive-to-z-wave-home-assistant-system/",
+    "https://tomstiani.com/projects/esp32-blinds-controller",
+    "https://github.com/agvdberg/SomfyIO_ESPHome_HomeAssistant",
+    "https://techbotch.org/blog/gate-drive-hassio/index.html",
+    "https://data.energizer.com/pdfs/cr2032.pdf"
+   ],
+   "design_impact": "Option A, the first prototype: keep the CR2032 and put only the PhotoMOS across the button, with no galvanic connection; plan battery replacement (Blum LED 'blinkt rot'). Option B: a dedicated low-noise LDO at 3.0 V (CR2032 nominal) or 3.3 V (daumemo), with 10-100 µF plus 100 nF at the switch pads. Never feed the switch from the ESP's switching rail directly. Long-term test either way."
+  },
+  {
+   "claim": "Wiring a microcontroller across the buttons of a proprietary RF remote is an established ESPHome and HA pattern. Typical pulses are 100-1000 ms, optocouplers are chosen for isolation, and the remote's status LEDs can be read back as feedback.",
+   "confidence": "medium",
+   "evidence": "HA community 'ESPHome garage door remote' (Pyro_Fox, 2025-02-09): Genie remote 'powered by the ESP8266', GPIO switch 'inverted: yes', 'on_turn_on: - delay: 250ms - switch.turn_off: button1'. reitermarkus/somfy (Telis 4): '4 × PC817 Optocoupler', '3.3V → 200 Ohm Resistor → A1-A4', emitters to the remote's button ground. tomstiani: a 150 ms press is a full open/close; longer holds give jog mode. agvdberg Somfy IO: template button with 'delay: 500ms'. techbotch (2026-03-22), Hörmann HS5-868-bs: PC817s chosen for 'Trennung zwischen ESP und Sender'; buttons have a 'gemeinsame Anode'; the transmitter's red and green status LEDs are read via PC817 (0.25-0.5 s pulses) for door-state feedback. Fibaro gate opener: 0.1 s impulse.",
+   "sources": [
+    "https://community.home-assistant.io/t/esphome-garage-door-remote/844311",
+    "https://github.com/reitermarkus/somfy",
+    "https://tomstiani.com/projects/esp32-blinds-controller",
+    "https://github.com/agvdberg/SomfyIO_ESPHome_HomeAssistant",
+    "https://techbotch.org/blog/gate-drive-hassio/index.html"
+   ],
+   "design_impact": "Copy the proven pattern: GPIO, resistor, opto LED, with the contact across the button pads and a momentary pulse from a script. Optionally sense the 23P5020's LED with a phototransistor to detect 'press registered' or low battery. That LED's behaviour on a normal press has not been verified."
+  },
+  {
+   "claim": "Any boot glitch or output restored to ON acts as a phantom button press, and the flap toggles. ESPHome switches default to ALWAYS_OFF, but community configs use RESTORE_DEFAULT_ON, and strapping pins have caused problems in similar builds.",
+   "confidence": "medium",
+   "evidence": "ESPHome switch docs: 'Unless a specific platform defines another default value, the default is ALWAYS_OFF'; 'RESTORE_DEFAULT_ON: Attempt to restore state and default to ON'. The Pyro_Fox garage-remote YAML uses 'restore_mode: RESTORE_DEFAULT_ON' together with 'inverted: yes'. techbotch: GPIO0, held low by an external pull-down, forced flash mode at boot, so the signal was moved to GPIO13. tomstiani: on strapping pins, 'If you hold them LOW during boot the chip can get stuck'.",
+   "sources": [
+    "https://esphome.io/components/switch/",
+    "https://community.home-assistant.io/t/esphome-garage-door-remote/844311",
+    "https://techbotch.org/blog/gate-drive-hassio/index.html",
+    "https://tomstiani.com/projects/esp32-blinds-controller"
+   ],
+   "design_impact": "Drive the PhotoMOS from a non-strapping GPIO that stays low through reset, with a pull-down on the LED-drive line. Use an ESPHome output plus a script or button rather than a restorable switch, or force restore_mode ALWAYS_OFF. Consider limiting the pulse in hardware (RC or monostable, about 1 s maximum) so a hung firmware cannot hold the button down."
+  },
+  {
+   "claim": "A mechanical pusher (SwitchBot Bot, micro servo or solenoid) over the original switch is the non-invasive last resort. It needs no Blum modification but adds a battery-powered BLE device and mounting difficulty.",
+   "confidence": "low",
+   "evidence": "Search snippets on SwitchBot Bot: 'Press mode' runs the lever through its full range and returns; hold time adjustable up to 60 s; one CR2 battery, about 600 days at roughly two uses a day; push-force figures conflict ('up to 8N' vs 1.0-1.15 kgf torque); no official ESPHome component, but an HA community ESP32 MQTT bridge exists. Blum brochure: 'The activation switch should be installed by pressing into the cabinet' (Ø35 bore), i.e. a flush round button.",
+   "sources": [
+    "https://shopsavvy.com/answers/how-strong-is-the-push-force-of-the-switchbot-smart-switch-button-pusher",
+    "https://www.matteralpha.com/review/switchbot-bot-rechargeable-review",
+    "https://community.home-assistant.io/t/switchbot-bot-curtain-meter-contact-motion-mqtt-esp32-bridge-local-control/286468?page=14",
+    "https://www.woodworkerexpress.com/skin/common_files/files/specs/blum/blum-servo-drive-brochure.pdf"
+   ],
+   "design_impact": "Use only if opening a switch is unacceptable. A 3D-printed bracket would hold a servo or solenoid, driven directly by the ESP32 (avoiding an extra BLE hop), over the flush 23P5020 face. Verify the actuation force and that the pusher never rests on the button, which would be a permanent press. Mechanical misalignment is an added failure mode."
+  },
+  {
+   "claim": "Replacing the SERVO-DRIVE electronics with a home-made motor controller has been prototyped. It discards Blum's control and safety logic and is far more invasive.",
+   "confidence": "medium",
+   "evidence": "github.com/pierreallier/Pilotage_ServoDrive_Blum, TODO.txt: '04/10/2025 : ... pilotage du moteur en boucle ouverte ... (servodrive ouvert)'; '24/10/2025 : Code fonctionnel asservissement en position'; 'ajout de deux boutons radio'. Code: 'const double limite_current = 2;'. Circuit image: Arduino Mega, H-bridge driver, current-sense module, magnetic angle sensor labelled 'Vers capteur angle porte et accéléromètre(s)', 433 MHz receiver module.",
+   "sources": [
+    "https://github.com/pierreallier/Pilotage_ServoDrive_Blum"
+   ],
+   "design_impact": "Out of scope because of the safety regression (loss of Blum collision detection) and warranty. It does confirm that magnetic angle sensing and current monitoring are workable sensing references."
+  },
+  {
+   "claim": "A switch press is state-dependent: it opens a closed flap and closes an open one. The device must therefore know the flap state before it presses, because pressing on a closed flap would open it.",
+   "confidence": "medium",
+   "evidence": "Blum BA-139/3 07.19: 'Über den SERVO-DRIVE-Schalter wird das automatische Öffnen oder Schließen von SERVO-DRIVE für AVENTOS ausgelöst.' daumemo: pads 'used to short the trigger button, so it will open/close command'; 'the cabinet door can be opened or closed from an automation'. Port-Net/BlumServoDrive toggleState(): 'if(state == 0x01) { return sendMove(idx, true); } else if(state == 0x10) { return sendMove(idx, false); }', i.e. the toggle is derived from stored state.",
+   "sources": [
+    "https://webshop.schachermayer.com/cdn/medias/docus/175/webd_Blum_Servodrive_Montageanleitung.pdf",
+    "https://daumemo.com/how-do-you-connect-a-blum-servo-drive-to-z-wave-home-assistant-system/",
+    "https://github.com/Port-Net/BlumServoDrive"
+   ],
+   "design_impact": "Flap sensing is a hard requirement of the non-RF design: it gates every press and confirms the result afterwards. Never press while the state is unknown, while the sensor value is changing (motion), or within a few seconds of the last movement."
+  },
+  {
+   "claim": "Normal opening is by pressing the front (touch), not by the switch, and the flap can always be moved by hand. An approach that only sniffs the switch's OPEN telegram would miss most openings; a state sensor catches all of them.",
+   "confidence": "high",
+   "evidence": "Blum BA-139/3 07.19: 'Druck auf die Front ➢➢ die Klappe öffnet automatisch'; 'Druck auf den SERVO-DRIVE-Schalter ➢➢ die Klappe schließt automatisch'; 'Die Klappe kann jederzeit uneingeschränkt manuell geöffnet oder geschlossen werden, ohne dass SERVO-DRIVE für AVENTOS dadurch beschädigt wird.' Blum product page: 'they close again just as conveniently at the press of a switch'. Brochure: 'AVENTOS lift systems open with just a light touch ‒ and then close again with the press of a button.'",
+   "sources": [
+    "https://webshop.schachermayer.com/cdn/medias/docus/175/webd_Blum_Servodrive_Montageanleitung.pdf",
+    "https://www.blum.com/eu/en/products/motion-technologies/servo-drive/servo-drive-aventos/programme/",
+    "https://www.woodworkerexpress.com/skin/common_files/files/specs/blum/blum-servo-drive-brochure.pdf"
+   ],
+   "design_impact": "Start the 5-minute timer from a sensed 'not closed' state, not from a radio command. Even if the RF angle succeeds, keep a reed or other non-contact sensor as ground truth. Cross-link for the RF angle: check whether the drive itself transmits anything on a touch-open."
+  },
+  {
+   "claim": "Cross-link to the RF angle: an open-source ESP32 + nRF24L01 Arduino library, 'BlumServoDrive' (Port-Net, LGPL-3.0, Dec 2024 to Jan 2025), claims to pair with and control Blum SERVO-DRIVE units, with explicit open/close commands and OPEN/CLOSE state events.",
+   "confidence": "medium",
+   "evidence": "library.json: 'Library to control Blum Servo Drives', dependency 'nrf24/RF24', platform 'espressif32'. blum_servo_drive.cpp: 'setDataRate(RF24_1MBPS)', 'enableDynamicPayloads()', 'disableCRC()', 'enableAckPayload()', 'setChannel(4)'; sync on 'setChannel(10)' with 'sync_cfg_addr = 0x534D554C42LL'. Header API: 'bool sendMove(uint idx, bool open)', 'bool toggleState(uint idx)', 'bool startSync()', events 'SYNC_END, SYNC_IDENTIFY, OPEN, CLOSE, NEWPEER, UNLINK'. The receive path logs 'Sync Move requested from' and fires OPEN/CLOSE callbacks; peer states are stored with Preferences. README: 'allow control of shelf equipped with blum servo drive.' No drive generation or test report is stated.",
+   "sources": [
+    "https://github.com/Port-Net/BlumServoDrive"
+   ],
+   "design_impact": "If verified, this may beat sniff/replay and the PhotoMOS hack: an nRF24L01+ (low BOM cost) gives commands and possibly state without opening a Blum switch. Hybrid recommendation: nRF24 for command and state, reed for safety confirmation, PhotoMOS plus spare 23P5020 as fallback. Check compatibility with the owner's drive generation (older <SWITCH>/<SYNC>/<COLL> drives vs HK top <Connect>/<Ok> vs 23.A00x top drives). Inference, unverified: co-located ESP32 Wi-Fi on channel 1 overlaps 2404/2410 MHz, so prefer channels 6 or 11 and keep the antennas apart."
+  },
+  {
+   "claim": "On an HK top, daumemo flush-mounted a magnet in the flap's inner face near its lower edge and put an 8 mm reed inside a 3D-printed housing on the cabinet's lower edge. The housing also holds the Blum distance bumper, the modified switch (still pressable) and the controller.",
+   "confidence": "medium",
+   "evidence": "daumemo parts list: 'Magnetic sensor with OD 8mm and a magnet'. Installed photo labels 'Magnet' (on the flap) and 'DIY Blum to Z-wave Adapter' (on the lower edge). 3D render labels: '3D Printed Enclosure', 'Blum Aventos Trigger Button', 'Fibaro Smart Implant', 'Door Sensor', 'Blum Door Bumper', 'Magnet', 'Cable holder'. Text: 'When the door closes – it becomes active while when open – inactive.' Thingiverse thing:7293224 is listed under Creative Commons Attribution-ShareAlike (search listing; the page itself returned 403).",
+   "sources": [
+    "https://daumemo.com/wp-content/uploads/2026/02/DIY-Blum-Aventos-to-Z-wave-adapter-installed-into-a-cabinet.jpg",
+    "https://daumemo.com/wp-content/uploads/2026/02/3D-printed-Blum-Servo-Drive-aventos-trigger-button-adapter-for-Z-wave.jpg",
+    "https://www.thingiverse.com/thing:7293224"
+   ],
+   "design_impact": "OpenSCAD reference: one enclosure at the flap's closing edge containing a reed pocket aligned with a Ø8-10 mm magnet pocket in the flap, a bumper seat (keeps Blum's gap and the 2 mm trigger path), a 23P5020 pocket with the button still reachable, plus ESP32, PhotoMOS, buzzer/LED, cancel button and a cable strain relief. A derived design falls under CC BY-SA."
+  },
+  {
+   "claim": "Reed sensors tolerate far more play than the flap has when closed: common MC-38 sensors actuate at about 15-25 mm, while Blum's bumpers keep a small gap with a 2 mm trigger path.",
+   "confidence": "medium",
+   "evidence": "MC-38 datasheet copies: 'Operating distance: more than 15mm, less than 25mm' (seller sheets; NO and NC variants exist). Blum brochure: 'Distance bumpers ensure the required trigger path of 2 mm'. Blum BA-139/3: 'Die Blum-Distanzpuffer sind an der Front angebracht, um den nötigen Abstand zwischen Klappe und Korpus zu halten.'",
+   "sources": [
+    "https://aws.robu.in/wp-content/uploads/2017/04/Datasheet-MC-38-final-1.pdf",
+    "https://uelectronics.com/wp-content/uploads/2019/12/Datasheet-MC-38.pdf",
+    "https://www.woodworkerexpress.com/skin/common_files/files/specs/blum/blum-servo-drive-brochure.pdf",
+    "https://webshop.schachermayer.com/cdn/medias/docus/175/webd_Blum_Servodrive_Montageanleitung.pdf"
+   ],
+   "design_impact": "Put the magnet 10 mm or less from the reed in the closed position for margin. The 2 mm push-to-open travel will not make the reed chatter; add delayed_on_off of about 200-300 ms. Any opening beyond a few cm, including a partial stop after collision detection, reads as 'not closed'. This works for HK, HF, HS and HL because the bottom edge always leaves the closed position."
+  },
+  {
+   "claim": "Because a false 'open' leads to a press that opens a closed flap, the sensor wiring should fail to 'closed' (no action) on a broken wire. The firmware should latch a fault when a press does not produce the expected state change.",
+   "confidence": "low",
+   "evidence": "Inference from the toggle semantics above and from GPIO pull-up behaviour. Both NO and NC reed variants are sold (MC-38 listings 'normal open' / 'Normally Close').",
+   "sources": [
+    "https://makerselectronics.com/product/magnetic-reed-switch-door-sensor-with-wire-mc-38a-normal-close",
+    "https://esphome.io/components/binary_sensor/"
+   ],
+   "design_impact": "Use a reed whose contacts open when the magnet is present (flap closed), read with INPUT_PULLUP, so HIGH means closed and a wire break also reads closed and causes no press. Catch shorts by plausibility (a press with no state change) or with an end-of-line resistor network on an ADC pin. After one failed attempt, disable auto-close and notify."
+  },
+  {
+   "claim": "A tilt sensor on the front works for pivoting fronts (HK top, up to 107°; HS up-and-over; HF bi-fold) but not for HL, whose front stays parallel to the cabinet. ESPHome core supports MPU6050, BMI160, BMI270, LSM6DS, QMI8658 and MSA301/311, but not LIS3DH or ADXL345.",
+   "confidence": "medium",
+   "evidence": "Blum 'How to identify lift systems': 'AVENTOS HL opens wall cabinet fronts parallel to the cabinet'; 'Wall cabinet fronts equipped with AVENTOS HK pivot up'; 'AVENTOS HS lifts large wall cabinet fronts up and over the cabinet'; 'AVENTOS HF is designed for bi-folding wall cabinet fronts'. HK top maximum opening angle 107° (Blum catalog), with limiters for 100° or 75° (retailer listings). ESPHome MPU6050: address 0x68, update_interval default 60s, 'This component only does some basic filtering and no calibration'. The ESPHome index lists BMI160, BMI270, LSM6DS, MPU6050, MPU6886, MSA301/MSA311 and QMI8658; no LIS3DH or ADXL345. Shelly BLU Door/Window measures tilt angle and checks it every 8 s (product listings). Blum: 'Weder das Blum-Netzgerät noch jegliche Verkabelung dürfen mit beweglichen Teilen in Berührung kommen.'",
+   "sources": [
+    "https://www.blum.com/no/en/company/quality-innovation/identify-blum-products/liftsystems/",
+    "https://www.blum.org.uk/pdf/HI22K2300-cat.pdf",
+    "https://www.sfs.ch/CH/en/dl/p/414796",
+    "https://esphome.io/components/sensor/mpu6050/",
+    "https://esphome.io/components/",
+    "https://www.shelly.com/products/shelly-blu-door-window-white",
+    "https://webshop.schachermayer.com/cdn/medias/docus/175/webd_Blum_Servodrive_Montageanleitung.pdf"
+   ],
+   "design_impact": "Treat an IMU as an optional plausibility sensor for HK, HS and HF (for example, more than 20° means not closed, more than 60° means open); it is not usable on HL. Running a cable to a moving front conflicts with Blum's rule, so the practical form is a battery sensor on the front, such as a Shelly BLU Door/Window over BTHome or a small deep-sleep ESP32 with an IMU."
+  },
+  {
+   "claim": "A VL53L0X ToF sensor inside the cabinet, aimed at the inner face of the closed front, gives non-contact closed/open detection that works for every lift type and needs no wiring on moving parts.",
+   "confidence": "medium",
+   "evidence": "ESPHome VL53L0X docs: maximum about 2 m, but 'Surfaces up to about 60 cm are generally reliable'; timing_budget default 33000 µs; update_interval default 60s; signal_rate_limit default 0.25; multiple sensors need enable_pin. VL53L1X is not in the ESPHome core index.",
+   "sources": [
+    "https://esphome.io/components/sensor/vl53l0x/",
+    "https://esphome.io/components/"
+   ],
+   "design_impact": "A good second, independent sensor, and the primary alternative for HL. Mount it in the same enclosure 5-30 cm from the front, with a threshold of 'front present within X cm' and update_interval 200-500 ms. Calibrate the offset, and keep stored items out of the beam."
+  },
+  {
+   "claim": "Ultrasonic ranging is a poor fit for door or flap position.",
+   "confidence": "low",
+   "evidence": "HA community 'Door Position Sensor' (scoobee81, 2022-02-06): 'I could never get the ultrasonic sensor working accurately and responsive enough' (HC-SR04, later US-100), replaced by a rotary encoder. Cabinet interiors add multipath (inference).",
+   "sources": [
+    "https://community.home-assistant.io/t/door-position-sensor/269319"
+   ],
+   "design_impact": "Leave out of the BOM."
+  },
+  {
+   "claim": "Non-contact magnetic alternatives to a reed are native in ESPHome (3-axis magnetometers, AS5600). They allow an analog gap or angle reading and detection of a lost magnet.",
+   "confidence": "low",
+   "evidence": "ESPHome component index, 'Magnetic' category: HMC5883L, MLX90393, MMC5603, MMC5983 and QMC5883L ('3-Axis magnetometer'), and AS5600 ('12-Bit Magnetic Position Sensor'). The pierreallier prototype used a magnetic angle sensor for door angle.",
+   "sources": [
+    "https://esphome.io/components/",
+    "https://github.com/pierreallier/Pilotage_ServoDrive_Blum"
+   ],
+   "design_impact": "Optional upgrade: a magnetometer beside the magnet reports closed, ajar or open continuously and can flag a fault when the field disappears (magnet lost). The cost is I2C wiring and calibration."
+  },
+  {
+   "claim": "Contact microswitches between front and carcass or on the lift arm, IR break-beams across the opening, and in-cabinet light sensors are poor fits.",
+   "confidence": "low",
+   "evidence": "Blum BA-139/3 lists as preconditions: 'Es sind keine Gegenstände zwischen Front und Korpus eingeklemmt'; bumpers keep the gap and the 2 mm trigger path; 'Bei Klappensystemen besteht bei Eingreifen in den Bereich der Hebel während der Öffnungs- bzw. Schließbewegung Verletzungsgefahr'. MA-502/3: 'Do not touch the area around the lever during the opening and closing motion.' The light-sensor and break-beam points are inference: the room is dark at night, and a closed flap sits in front of the opening rather than across a beam inside it.",
+   "sources": [
+    "https://webshop.schachermayer.com/cdn/medias/docus/175/webd_Blum_Servodrive_Montageanleitung.pdf",
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf"
+   ],
+   "design_impact": "Avoid spring-loaded switches that push on the front: they could trigger touch-to-open or stop the flap closing fully. Keep anything away from the lever mechanism and do not rely on light levels. Prefer non-contact sensing."
+  },
+  {
+   "claim": "Drive current can reveal motion but not position. Inserting a shunt means modifying Blum's cabling, so a power-metering smart plug on the Blum PSU is the non-invasive alternative (its signal is unverified).",
+   "confidence": "medium",
+   "evidence": "Blum BA-139/3 07.19 technical data: 'Antriebseinheit SERVO-DRIVE für AVENTOS – Versorgungsspannung: 24 VDC; Bemessungsstrom: 2.0 A; Leistungsaufnahme im Standby: 0.6 W (Front geschlossen)'. Blum 24 W PSU: 'Ausgangsstrom nominal: 1.0 A', standby '<0.075 W'. ESPHome core includes INA219, INA226, INA260 and INA3221. Blum: 'Nur eine qualifizierte Fachkraft darf ... die Verkabelung verändern'; 'Schließen Sie am Blum-Netzgerät keine anderen Geräte als die dafür vorgesehenen Blum-Komponenten an.'",
+   "sources": [
+    "https://webshop.schachermayer.com/cdn/medias/docus/175/webd_Blum_Servodrive_Montageanleitung.pdf",
+    "https://esphome.io/components/"
+   ],
+   "design_impact": "Diagnostics only: confirm that a press produced motion, detect short stopped runs that suggest a collision, and estimate the motion duration for the wait_until timeout. Measure the real profile first. Standby is about 25 mA at 24 V. Never power the ESP32 from the Blum PSU or its distribution cable."
+  },
+  {
+   "claim": "ESPHome provides every primitive for the state machine closed -> opened -> wait -> warn -> press -> confirm -> retry once -> fault, running on the device without Home Assistant.",
+   "confidence": "high",
+   "evidence": "ESPHome script docs: 'restart: Start a new run after first stopping previous run'; script.stop is 'useful if you want to stop a script that contains a delay action, wait_until action'. Actions: delay is a 'smart asynchronous delay'; wait_until timeout is 'Time to wait before timing out. Defaults to never timing out.' Binary sensor: 'delayed_on_off: Only send an ON or OFF value if the binary sensor has stayed in the same state for at least the specified time period', with a suggested starting point of 'delayed_on_off: 20ms' for tactile switches. Template number: 'restore_value: Saves and loads the state to RTC/Flash'. Preferences flash_write_interval 'Defaults to 1min'. Feedback cover: open/close endstops, 'max_duration', 'open_obstacle_sensor'/'close_obstacle_sensor', 'supports open, close, stop and toggle actions'. RTTTL Buzzer, LD2410, INA2xx, VL53L0X and MPU6050 are core components.",
+   "sources": [
+    "https://esphome.io/components/script/",
+    "https://esphome.io/automations/actions/",
+    "https://esphome.io/components/binary_sensor/",
+    "https://esphome.io/components/number/template/",
+    "https://esphome.io/components/preferences/",
+    "https://esphome.io/components/cover/feedback/",
+    "https://esphome.io/components/"
+   ],
+   "design_impact": "Skeleton to adapt (pins and names are placeholders):\napi:\n  reboot_timeout: 0s\nwifi:\n  reboot_timeout: 0s\nesphome:\n  on_boot:\n    priority: -100\n    then:\n      - if:\n          condition:\n            binary_sensor.is_off: flap_closed\n          then:\n            - script.execute: auto_close\nbinary_sensor:\n  - platform: gpio\n    id: flap_closed   # HIGH = closed (reed opens when magnet present)\n    pin: {number: GPIO4, mode: INPUT_PULLUP}\n    filters:\n      - delayed_on_off: 300ms\n    on_press:\n      - script.stop: auto_close\n    on_release:\n      - script.execute: auto_close\nnumber:\n  - platform: template\n    id: close_delay_min\n    min_value: 1\n    max_value: 60\n    step: 1\n    initial_value: 5\n    optimistic: true\n    restore_value: true\noutput:\n  - platform: gpio\n    id: blum_btn\n    pin: GPIO16\nscript:\n  - id: press_blum\n    mode: single\n    then:\n      - output.turn_on: blum_btn\n      - delay: 500ms\n      - output.turn_off: blum_btn\n  - id: auto_close\n    mode: restart\n    then:\n      - delay: !lambda 'return (uint32_t)(id(close_delay_min).state * 60000);'\n      - wait_until:\n          condition:\n            binary_sensor.is_off: presence\n          timeout: 10min\n      # warn >=5 s here (rtttl + LED); abort if the cancel button is pressed\n      - delay: 6s\n      - if:\n          condition:\n            binary_sensor.is_off: flap_closed\n          then:\n            - script.execute: press_blum\n            - wait_until:\n                condition:\n                  binary_sensor.is_on: flap_closed\n                timeout: 30s\n      # still open: one warned retry, then latch a fault global, disable auto-close, homeassistant.event / notify\nAlternative: model the flap as a feedback or template cover so HA shows open/closed. Arduino or PlatformIO is only needed if the nRF24 library route is chosen; it can be wrapped as an ESPHome external component. Plain ESP-IDF is unnecessary."
+  },
+  {
+   "claim": "By default ESPHome reboots after 15 minutes with no API client or no Wi-Fi, so a standalone timer device would reboot in the middle of a countdown.",
+   "confidence": "high",
+   "evidence": "ESPHome api: reboot_timeout 'The amount of time to wait before rebooting when no client connects to the API.' 'Defaults to 15min.' 'Can be disabled by setting this to 0s.' ESPHome wifi: reboot_timeout 'Defaults to 15min.' 'Can be disabled by setting this to 0s.'; ap_timeout 'Defaults to 90s'.",
+   "sources": [
+    "https://esphome.io/components/api/",
+    "https://esphome.io/components/wifi/"
+   ],
+   "design_impact": "Set both reboot timeouts to 0s, or drop api for a fully standalone build. Make the logic re-entrant: on_boot, if the flap is not closed, start a full delay. Persist only settings (restore_value), not timers."
+  },
+  {
+   "claim": "The ESP32 watchdogs alone do not enforce 'never hold the button'. The interrupt watchdog panics on blocked ISRs, but the task watchdog by default only prints a warning.",
+   "confidence": "high",
+   "evidence": "ESP-IDF watchdog docs: IWDT, 'the default action is to invoke the panic handler', with a second-stage hard reset. TWDT: 'the default behaviour is to simply print a warning and a backtrace before continuing running the app'; enable CONFIG_ESP_TASK_WDT_PANIC for a reset. RTC watchdog 'by default ... is disabled immediately before the user's main function'.",
+   "sources": [
+    "https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/system/wdts.html"
+   ],
+   "design_impact": "Keep pulse generation in one short script and add a 1 s interval check that forces the output off if it has been on longer than about 1.5 s. On Arduino or ESP-IDF, enable TWDT panic. Consider hardware pulse limiting."
+  },
+  {
+   "claim": "Blum drive behaviour constrains the retry logic. A mains interruption during motion leaves the flap where it stopped and the switch must be pressed to resume. HK top is rated S3 5%, max 10 movements per 10 min. A reference run must not be interrupted.",
+   "confidence": "high",
+   "evidence": "Blum BA-139/3 07.19: 'Befindet sich SERVO-DRIVE für AVENTOS bei einer Netzunterbrechung in Bewegung, bleibt die Klappe stehen. Um SERVO-DRIVE für AVENTOS wieder in Betrieb zu nehmen, betätigen Sie den SERVO-DRIVE-Schalter.' HK top drive: 'Betriebsart: S3 5% max. 10 Bewegungen / 10 min.' MA-502/1DE: 'Front öffnet und schließt 2 Mal automatisch: Den Vorgang keinesfalls durch Eingreifen unterbrechen bzw. stoppen.' Brochure: 'lift systems with SERVO-DRIVE for AVENTOS can also be easily opened and closed manually at anytime, e.g. when there is a power outage.'",
+   "sources": [
+    "https://webshop.schachermayer.com/cdn/medias/docus/175/webd_Blum_Servodrive_Montageanleitung.pdf",
+    "https://www.ballerina.de/media/config/media/content/downloads/montageanleitungen/montage_blum5.pdf",
+    "https://www.woodworkerexpress.com/skin/common_files/files/specs/blum/blum-servo-drive-brochure.pdf"
+   ],
+   "design_impact": "After any boot with the flap open, expect that the first press may only re-activate the drive: verify with the sensor and allow exactly one retry. Rate-limit automatic presses globally (for example, no more than 2 per open cycle and 4 per 10 min). Hold off auto-close for a short grace period after boot and after any Blum reset or re-pairing (reference run)."
+  },
+  {
+   "claim": "Blum's built-in collision detection stops opening and closing on contact. Blum still warns of injury in the lever area and of children on worktops, and recommends a switched outlet to prevent unintended operation.",
+   "confidence": "high",
+   "evidence": "Blum BA-139/3 07.19: 'Durch die integrierte Kollisionserkennung wird der Öffnungs- bzw. Schließvorgang automatisch unterbrochen, wenn die Front auf einen Körperteil oder Gegenstand trifft.' Brochure: 'Even when the switch has just been pressed for closing – the closing procedure is halted immediately if the user again reaches into the cabinet and/or an object is placed between the cabinet and the door.' Safety section: 'Bei Klappensystemen besteht bei Eingreifen in den Bereich der Hebel während der Öffnungs- bzw. Schließbewegung Verletzungsgefahr.'; 'Personen, insbesondere Kinder, die auf der Arbeitsplatte sitzen oder stehen, können beim Öffnen und Schließen einer Klappe von der Arbeitsplatte stürzen oder verletzt werden.'; 'Um SERVO-DRIVE gegen unbeabsichtigte Betätigung zu sichern, schalten Sie die schaltbare Steckdose aus.' Blum product page: 'The opening and closing action are automatically stopped as soon as the front touches a part of the body or an object.'",
+   "sources": [
+    "https://webshop.schachermayer.com/cdn/medias/docus/175/webd_Blum_Servodrive_Montageanleitung.pdf",
+    "https://www.woodworkerexpress.com/skin/common_files/files/specs/blum/blum-servo-drive-brochure.pdf",
+    "https://www.blum.com/eu/en/products/motion-technologies/servo-drive/servo-drive-aventos/programme/"
+   ],
+   "design_impact": "The add-on must leave Blum's protection untouched. Never retry immediately after a close that did not finish (likely an obstacle): warn again, check presence and retry at most once. Provide a hard disable (HA switch plus a physical button), with Blum's switched outlet remaining the master cut-off."
+  },
+  {
+   "claim": "US garage-door rules require an audible and visual warning of at least 5 s before any unattended closing, and forbid accessories from overriding entrapment protection. This is a transferable UX and safety pattern for a timed auto-close, though it does not legally apply to furniture.",
+   "confidence": "high",
+   "evidence": "16 CFR 1211.14: 'The operator system shall provide an audible and visual alarm signal.' 'The alarm shall signal for a minimum of 5 seconds before any unattended closing door movement.' For control accessories, the alarm must sound 'before any door movement if the next direction of door travel cannot be determined'; the accessory 'shall not interfere with, override, or alter any entrapment protection features'; 'Unattended operation shall not be permitted on one-piece garage doors or swinging garage doors.'",
+   "sources": [
+    "https://www.law.cornell.edu/cfr/text/16/1211.14"
+   ],
+   "design_impact": "Give a warning of 5-10 s (piezo via ESPHome RTTTL plus LED) before every automatic press, and repeat it before the retry. The press direction is inferred from the sensor, which matches the 'next direction cannot be determined' case, so always warn. A one-piece swinging flap resembles the door type for which regulators forbid unattended closing, so stay conservative."
+  },
+  {
+   "claim": "ESPHome's LD2410 component exposes presence binary sensors with configurable gates and timeout, suitable for postponing a close while someone is at the cabinet. A PIR is a cheaper, motion-only alternative.",
+   "confidence": "medium",
+   "evidence": "ESPHome LD2410: 'has_target: Reports presence, whether still or moving'; has_moving_target and has_still_target; 'timeout ... default of 5 seconds'; 'max_move_distance_gate and max_still_distance_gate each accept values from 2 to 8'; baud_rate default '256000'.",
+   "sources": [
+    "https://esphome.io/components/sensor/ld2410/"
+   ],
+   "design_impact": "Before the warning and the press: if has_target, postpone and re-check every 30 s, with a cap on postpones followed by a notification. Aim the radar at the space in front of the cabinet and tune the gates to exclude the room beyond. Add a physical cancel/snooze button on the enclosure and an 'auto-close enabled' switch, default off when children are around if the owner wants."
+  },
+  {
+   "claim": "IEC 60335-2-116:2025 (Ed. 2, replacing the 2019 edition) explicitly covers motorized storage and kitchen units, wall-mounted furniture and motorized doors and drawers. It defines hold-to-run (biased-off) switches and rated duty cycle, revises the entrapment force test, and does not consider children playing.",
+   "confidence": "high",
+   "evidence": "IEC 60335-2-116:2025 preview: 'This part of IEC 60335 deals with the safety of furniture with electrically motorized parts intended for household and similar purposes, their rated voltage being not more than 250 V including direct current (DC) supplied furniture'. Examples include '– electrically operated/adjustable storage units including kitchen units; – electrically operated/adjustable furniture intended to be secured to the wall or ceiling; – electrically operated extension elements (drawers and doors)'. Exclusions: 'in general, it does not take into account ... – children playing with furniture incorporating electrically motorized parts'. Definitions: '3.7.101 biased-off switch: hold-to-run device which initiates and maintains the movement only as long as the manual control is actuated'; '3.1.101 rated duty cycle'. Changes: 'revision of Clause 20.2.105 with a new entrapment force test method, including time-force profiles and updated force limits'. Contents: 'Annex R (normative) Software evaluation'.",
+   "sources": [
+    "https://www.vde-verlag.de/iec-normen/preview-pdf/info_iec60335-2-116{ed2.0}en.pdf"
+   ],
+   "design_impact": "High-level norm anchor for the risk notes. A timed auto-close is a non-hold-to-run movement whose safety rests on the drive's force limitation, which belongs to Blum and must not be defeated. Annex R signals that software-based protective functions need rigor, so the add-on's measures (warning, presence check, cancel) should only add to Blum's protection, never replace it. The standard explicitly excludes children playing, so the owner must decide on child mitigations."
+  },
+  {
+   "claim": "Blum declares the 23.A000/23.A001 drive units (for AVENTOS HF/HL/HS top) as complete machinery under 2006/42/EC. It cites EN ISO 12100, EN ISO 13849-1/-2, EN 60335-1 (including A15:2021) and EN ISO 14118, plus RED and EMC standards.",
+   "confidence": "high",
+   "evidence": "Blum EU declaration (Hoechst, 2023-09-06): 'Produkt-Typen: 23.A000 (SERVO-DRIVE Antriebseinheit für AVENTOS HF-/HL-/HS- top -- Einzelverpackung), 23.A001 (... Mehrfachverpackung)'; 'Blum SERVO-DRIVE drives are complete machinery if they are utilized according to Blum's specifications'. Standards: 'EN ISO 12100: 2010', 'EN ISO 13849-1: 2015', 'EN ISO 13849-2: 2012', 'EN 60335-1: 2012 + AC: 2014 + A11: 2014 + A13: 2017 + A15: 2021', 'EN ISO 14118: 2018'; RED 'EN 300 440 v2.1.1'; 'EN 62479: 2010', 'EN 55014-1: 2017 + A11: 2020', 'EN 55014-2', 'EN 301 489-1 v2.2.3', 'EN 301 489-3 v2.2.0', RoHS 'EN IEC 63000: 2018'. The manual carries the EN 60335-1-style wording 'Dieses Gerät kann von Kindern ab 8 Jahren und darüber ... benutzt werden, wenn sie beaufsichtigt ...'.",
+   "sources": [
+    "https://d2.blum.com/services/BEC003/me8343120_zf_dok_bau_$sml_$aof_$v2.pdf",
+    "https://webshop.schachermayer.com/cdn/medias/docus/175/webd_Blum_Servodrive_Montageanleitung.pdf"
+   ],
+   "design_impact": "Blum's safety case assumes the user starts each movement. A timer-started close resembles an unexpected start (the EN ISO 14118 topic), so the pre-warning, presence check and disable are the mitigations. The drive itself contains a 2.4 GHz SRD radio (RED, EN 300 440), which is a cross-link for the RF angle. Use a CE-marked ESP32 module."
+  },
+  {
+   "claim": "Blum's instructions forbid opening the switch, structural changes, connecting other devices to the Blum PSU, and cabling changes by non-qualified persons. All SERVO-DRIVE units are protection class III and run on SELV.",
+   "confidence": "high",
+   "evidence": "Blum BA-139/3 07.19: 'Bauliche Veränderungen und vom Hersteller nicht zugelassene Ersatzteile beeinträchtigen Sicherheit und Funktion von SERVO-DRIVE und sind daher nicht erlaubt.' 'Schließen Sie am Blum-Netzgerät keine anderen Geräte als die dafür vorgesehenen Blum-Komponenten an.' 'Nur eine qualifizierte Fachkraft darf Blum-Komponenten einbauen und austauschen, die Position des Blum-Netzgerätes oder die Verkabelung verändern.' 'Öffnen Sie niemals ein Blum-Netzgerät, eine Antriebseinheit oder einen SERVO-DRIVE-Schalter.' 'Alle SERVO-DRIVE sind Schutzklasse-III-Geräte und dürfen nur mit Schutzkleinspannung SELV ... betrieben werden. Sie sind ausschließlich mit den dafür vorgesehenen Netzgeräten von Blum zu betreiben.' daumemo, by contrast, runs a Mean Well 24 V supply and offers a two-PSU variant.",
+   "sources": [
+    "https://webshop.schachermayer.com/cdn/medias/docus/175/webd_Blum_Servodrive_Montageanleitung.pdf",
+    "https://daumemo.com/how-do-you-connect-a-blum-servo-drive-to-z-wave-home-assistant-system/"
+   ],
+   "design_impact": "Modify only a spare switch, and accept that it leaves Blum's intended use. Power the ESP32 from its own SELV USB 5 V supply. Do not splice into Blum's distribution cable unless the owner accepts it (current sensing). Keep everything else non-invasive."
+  },
+  {
+   "claim": "A second community plan (Shelly forum, January 2025) proposed the same architecture. It bridges the 23P5020 micro-button with a Shelly Plus Uni potential-free output (auto-off 1 s), powers the switch from the Uni's sensor VCC of about 3.3 V, and senses state with reed contacts or a Shelly BLU Door/Window. No implementation was reported.",
+   "confidence": "medium",
+   "evidence": "Shelly forum thread 27978: Andreas Wobig (2025-01-04) wants to bridge the '23P5020 Servo-Drive Schalter, 3V CR2032' with the potential-free contacts of a Shelly Uni. apreick: simulate a button press with 'Auto off (1s)'. DIYROLLY: 'Die ca. 3,3V DC bekommst Du aus dem VCC Sensor Anschluss (+) am UNI gegen GND'; reed contacts on an input, outputs set to 'detached/getrennt'. ostfriese suggests a Shelly Blu Door/Window for status. The author names soldering fine wires to the micro-button as the main hurdle; no test is reported. Shelly docs (search snippet): Plus Uni has 2 potential-free solid-state outputs, about 300 mA / 30 V.",
+   "sources": [
+    "https://shelly-forum.com/thread/27978-blum-servodrive-mit-shelly-uni-steuern/",
+    "https://www.shelly.com/blogs/documentation/shelly-plus-uni"
+   ],
+   "design_impact": "Confirms that a potential-free contact plus a reed is the community default. A Shelly Plus Uni (with Shelly scripting or HA) is an off-the-shelf alternative to a custom ESP32 board if the owner prefers not to build electronics. The custom board still wins for the warning buzzer, presence radar and on-device state machine."
+  }
+ ],
+ "negative_results": [
+  "GitHub repository search via api.github.com (Nov 2026) for 'blum servo', 'servo-drive blum', 'blum aventos', 'aventos' and 'servodrive': the only Blum-related hits are Port-Net/BlumServoDrive (nRF24 library), pierreallier/Pilotage_ServoDrive_Blum (drive electronics replacement) and the owner's own repo sven-borden/smart-servo-drive-blum-aventos. No ESPHome component or YAML for Blum SERVO-DRIVE was found. (The GitHub MCP tool failed with bad credentials; the public API was used instead.)",
+  "No official Blum wired control input, API or smart-home interface was found. The Blum SERVO-DRIVE for AVENTOS page and the Blum manuals BA-139/3 07.19, MA-502/1DE 11.16 and MA-502/3 10.20 describe only front touch, the wireless switch, manual operation and a switched outlet for deactivation.",
+  "Only two pieces of Blum smart-home prior art were found: daumemo (Z-Wave/Fibaro, implemented) and Shelly forum thread 27978 (Shelly Plus Uni, plan only, not tested). Searched EN and DE terms: 'Servo-Drive Funkschalter Smart Home', 'Shelly', 'Homematic', 'KNX', 'ESPHome', 'Klappe automatisch schließen'.",
+  "No source documents what a switch press does while the flap is moving or after a collision-detection stop, nor the collision-detection force threshold. Blum docs only say the motion is 'stopped as soon as the front touches a part of the body or an object'.",
+  "No source explains the 23P5020 'Connect' LED as a transmission acknowledgement. Blum manuals and manualslib page 29 document only the battery LED (flashes red when weak, lit red when the battery is inserted wrongly) and the drive-unit LEDs during pairing.",
+  "Kuechen-forum thread 25256 ('manuell öffnen aber elektrisch schliessen') has no description of switch toggle behaviour, only the Blum quote on manual operation.",
+  "ESPHome core has no LIS3DH, ADXL345 or VL53L1X component (checked in the component index); external components would be needed.",
+  "No measured data was found on SERVO-DRIVE motion current, motion duration, or mains-side power during motion; the current-sensing signature is unverified.",
+  "The entrapment force limits of IEC 60335-2-116 (clause 20.2.105, Figure 102) are not in the free preview. Blum's 23.A000/23.A001 declaration does not list EN 60335-2-116 (it lists EN 60335-1 plus machinery standards).",
+  "The HA community MPU6050 thread (364655) contains no garage-door or flap tilt configuration; no verified ESPHome tilt configuration for lift-up flaps was found.",
+  "Inaccessible and not circumvented: manuals.fibaro.com (403; a mirror PDF on montersi.pl was used), fccid.io/W95-23P502L00 (403), apps.fcc.gov GenericSearchResult for grantee W95 (403), manualzz.com and manuals.plus Blum manuals (403), thingiverse.com thing:7293224 (403), richelieu.com and static.richelieu.com Blum leaflets (connection reset).",
+  "The web-search budget for this run ran out before ceiling-fan remote examples could be searched; that sub-question is still open."
+ ],
+ "open_questions": [
+  "What does a 23P5020 press do during motion (stop, reverse or ignore) and after a collision-detection stop (continue closing or re-open)? This decides whether a single retry is safe.",
+  "What are the real voltage and polarity on daumemo's 'Button to Vcc (maybe 1.8 V)' and 'Button to MCU' pads? Does the MCU input use a pull-down (relevant to PhotoMOS leakage)?",
+  "What press-duration window does the switch accept? Does a long press (more than about 1-3 s) trigger another function, such as pairing or reset?",
+  "Does the 23P5020 LED give feedback (acknowledged or failed telegram) on a normal press that could be sensed optically?",
+  "After mains power returns, does the first switch press move the flap or only re-activate the drive? Is a reference run needed?",
+  "How long does a full close take, and what is the current profile (needed for the wait_until timeout and for any current or plug-metering diagnostics)? Is there any holding current when the flap is open?",
+  "Does Port-Net/BlumServoDrive work with the owner's drive generation (21xA00y with <SWITCH>/<SYNC>/<COLL>, HK top with <Connect>/<Ok>, or 23.A000/23.A001 top drives)? Does the drive broadcast move or state telegrams on a touch-open without sync peers? (RF angle.)",
+  "Does co-locating an ESP32 Wi-Fi radio with a modified 23P5020 inside one enclosure degrade the Blum link (channel overlap near 2404/2410 MHz)?",
+  "Is a powered 23P5020 reliable long term on a regulated supply (brownout during TX bursts, regulator noise), compared with keeping the CR2032?",
+  "Would a timed auto-close need protective measures beyond the drive's own entrapment protection under IEC 60335-2-116 (clause 20.2.105 force limits are paywalled)?"
+ ],
+ "questions_for_user": [
+  "Which lift and drive do you have exactly? Please give the drive-unit label part number (for example 21FA/21SA/21LA/21KA..., 23.A000/23.A001, or the HK top drive) and a photo of the drive's button panel (SWITCH/SYNC/COLL or Connect/Ok/Play/Collision). Is it AVENTOS HF top, HS top, HL top or HK top?",
+  "What does your radio switch's label say (23P5020 or 21P5020)? How many switches are paired or installed, and do you have a spare, or are you willing to buy a 23P5020 set (2 pieces) to modify?",
+  "How is the flap usually opened: by pressing the front (touch), with the switch, or by hand? Who uses the cabinet (children, guests)?",
+  "Is your drive synchronized with another drive unit, or linked with collision avoidance (SYNC/COLL)?",
+  "Which Blum power supply do you have (Z10NA/Z10NE...)? Is it on a switched outlet? Is there a free mains or USB outlet near the cabinet for a separate 5 V supply for the ESP32?",
+  "Can we drill an 8-10 mm magnet pocket into the inner face of the front, and screw a small enclosure to the cabinet edge where the flap closes (as daumemo did)? What are the front's material and thickness, and the gap when closed?",
+  "Is there a worktop or countertop under the cabinet where children could climb or lean (Blum's warning)? Are there pets?",
+  "Do you run Home Assistant (notifications, configurable delay, remote cancel), or must the device be fully standalone?",
+  "Are you willing to open and solder a Blum switch (against Blum's instructions), or do you prefer a non-invasive mechanical pusher or an RF-only solution?",
+  "Could you photograph both sides of a 23P5020 PCB (battery removed), so we can confirm daumemo's pads and measure the button-pad voltages with a multimeter?"
+ ]
+}

@@ -1,0 +1,331 @@
+{
+ "angle": "PLATFORM + ENCLOSURE: board selection, power, antenna/RF placement, OpenSCAD enclosure libraries and tolerances, existing enclosure designs, BOM with EU prices (Nov 2026)",
+ "summary": "Blum's own documentation (SERVO-DRIVE instruction leaflet, an FCC exhibit mirrored on fccid.io) settles how the device should be powered. SERVO-DRIVE runs on 24 V DC SELV from Blum transformers: Z10NE030 is 24 V/1.0 A and Z10NA300 is 24 V/0.5 A. The AVENTOS drive units are rated 24 V/2.0 A with a duty limit of 'S3 5% max. 10 motions/10 min', and Blum says 'Blum components are the only devices that should be connected to the Blum transformer.'\n\nRecommendation 1, power: use a separate USB-C 5 V adapter. If a 24 V source is used anyway, the Mini360 (MP2307, 23 V max) is out of spec. MP1584 (28 V operating, 30 V absolute max) works with little margin; LM2596 (40 V) has plenty of margin but is bulky and idles at about 5 mA.\n\nRecommendation 2, default board: Seeed XIAO ESP32-C3. It measures 21 × 17.8 mm and has 11 GPIO and SPI. The 3V3 output is rated 500 mA in Seeed's datasheet; the wiki also says 700 mA, so 500 mA is the safe design value. It has a 380 mA LiPo charger, 44 µA deep sleep and a supplied U.FL antenna, and costs about €5–8 in EU shops. Pin planning around strapping pins GPIO2/8/9 and UART TX (GPIO21) is needed, and only D0–D3 can wake it from deep sleep.\n\nAlternatives:\n- ESP32-C3 SuperMini: cheapest at €2–6, but the vendor admits weak Wi-Fi, there is no charger and the LDO varies between boards.\n- XIAO ESP32-S3: 14 µA deep sleep, €7.91.\n- M5Stack AtomS3 Lite: comes in a case but has only 8 GPIO.\n- LOLIN C3 mini (34.3 × 25.4 mm) and the classic DevKitC (about 54 × 28 mm, third-party figure): larger.\n- nRF52840 boards: the chip has a proprietary 2.4 GHz radio at 1/2 Mbps, compatible over the air with Nordic's nRF24L chips, but it has no 250 kbps mode. So a single XIAO nRF52840 (€11.99) could replace ESP32 + SPI radio only if the Blum protocol turns out to be Nordic-compatible at 1/2 Mbps. That depends on the RF angle.\n\nBattery power is realistic only in this setup: deep sleep, woken by a reed switch, with a hacked Blum switch (about 44 µA, so years in theory on 1000 mAh). A receiver that listens continuously (nRF24L01+ RX 13.5 mA) lasts about 3 days on 1000 mAh, so it needs USB power.\n\nRF is not critical inside one cabinet. Blum quotes a typical range of 10 m, and at 1 m the free-space path loss is 20 dB lower. A 2 mm PLA/PETG wall absorbs about 0.007 dB at 2.4 GHz (calculated from published PLA εr/tanδ data). Keep 15 mm clearance from metal (Espressif), avoid carbon or conductive filaments, keep the box at least 30 mm from the Blum transformer, and keep all cables out of the lift's moving parts (Blum).\n\nBlum's leaflet says pressing the front opens the flap and pressing the switch closes it, and the flap can also be moved by hand. So the flap can be opened without any radio event, and a reed sensor should be treated as required: it starts the 5-minute timer and confirms that the CLOSE worked.\n\nEnclosure: YAPP_Box v3.3.x (MIT) already provides PCB standoffs, screw connectors with insert sockets, cutouts on all six faces, snap joins, external mounting tabs, light tubes, push buttons and labels. BOSL2 (BSD-2) supplies snap pins, snap locks and hex vents. NopSCADlib (GPL-3.0) has fit-check models: XIAO 21×18×1.2 mm, MP1584EN 22×17 mm, ESP32 DOIT 51.45×28.33 mm, plus insert holes of 3.2 mm (M2) and 4.0 mm (M2.5). CNC Kitchen insert holes are M2×3 → 3.2 mm (wall ≥1.3 mm) and M2.5×4 → 4.0 mm (wall ≥1.6 mm).\n\nPrior art: daumemo is the only Blum-specific enclosure found (Thingiverse thing:7293224, Z-Wave/Fibaro based). No ESP32 + Blum OpenSCAD design was found.\n\nThe shared WebSearch budget ran out during the research. Remaining checks used direct fetches of known URLs and GitHub file reads only; some prices are therefore marked as estimates.",
+ "findings": [
+  {
+   "claim": "Blum's documentation fixes the power architecture. SERVO-DRIVE runs on 24 V DC SELV from Blum transformers: Z10NE030 is 24 W (24.0 V/1.0 A) and Z10NA300 is 12 W (24.0 V/0.5 A). The AVENTOS drive units are rated 24.0 V/2.0 A with duty limit 'S3 5% max. 10 motions/10 min'. Blum states that only Blum components may be connected to the transformer and only qualified persons may change the cabling.",
+   "confidence": "high",
+   "evidence": "Blum SERVO-DRIVE Instruction leaflet EN (FCC exhibit on fccid.io), Technical data pp.28-30: '24-Watt Blum transformer Z10NE030 ... Output power: 24.0 W / Output voltage: 24.0 V d.c. / Output current: 1.0 A ... No-load power consumption: <0.08 W'; '12-Watt Blum transformer Z10NA300 ... 24.0 V d.c. ... 0.5 A ... IP44'; 'SERVO-DRIVE drive unit for AVENTOS' and '...for AVENTOS HK top': 'Supply voltage: 24.0 V d.c. / Rated current: 2.0 A / Power consumption in standby mode: < 0.6 W (front closed) ... Operating mode: S3 5% max. 10 motions/10 min.' p.28: 'All SERVO-DRIVE appliances are of protection class III and must only be supplied with safety extra-low voltage (SELV). They are only to be used with the transformers provided by Blum.' p.5: 'Blum components are the only devices that should be connected to the Blum transformer.' and 'Only qualified persons may install or replace Blum components, modify the position of the Blum transformer or modify the cabling.' The older ManualsLib manual has the same rule: 'SERVO-DRIVE components are the only devices that should be connected to the SERVO-DRIVE power supply unit.'",
+   "sources": [
+    "https://fccid.io/m/d1b5fcb86d3083a1873b97676a0f2a009907166fb423cf3f44e77145eb2c5ac7.pdf",
+    "https://www.manualslib.com/manual/3481111/Blum-Servo-Drive.html"
+   ],
+   "design_impact": "Power the device from its own USB-C 5 V adapter or a separate PSU, not from the Blum 24 V bus. Tapping the bus breaks Blum's instructions and reduces margin: the 24 W unit supplies 1.0 A while one drive is rated 2.0 A, so a brownout during motion could also reset the ESP32 mid-sequence. Firmware must count every motion, retries included, and stay at or below 10 motions per 10 min, e.g. at most 2 CLOSE retries at least 30 s apart, then stop and signal an error."
+  },
+  {
+   "claim": "If a 24 V source is used anyway (for example a separate 24 V PSU shared with the device): the Mini360 (MP2307) is out of spec at 24 V, MP1584 modules are within spec with little margin, and LM2596 modules have ample margin but idle at about 5 mA and are larger.",
+   "confidence": "high",
+   "evidence": "MP2307 datasheet text (domoticx copy): 'Wide 4.75V to 23V Operating Input Range'. MPS MP1584 datasheet (Rev 1.0 via RS): 'Wide 4.5V to 28V Operating Input Range'; Absolute Maximum 'Supply Voltage (VIN) –0.3V to +30V'; 'Quiescent Supply Current, No load, VFB = 0.9V: 100 typ / 125 max µA'; the PDF carries the watermark 'NOT RECOMMENDED FOR NEW DESIGNS REFER TO MP2338'. TI LM2596 SNVS124G (rev. March 2023): 'Input voltage range up to 40 V'; abs. max 'Maximum supply voltage (VIN) 45 V'; operating 'Supply voltage 4.5 / 40 V'; 'Operating quiescent current 5 typ / 10 max mA'; '150-kHz fixed-frequency internal oscillator'.",
+   "sources": [
+    "https://domoticx.net/docs/mp2307-3a-23v-340khz-synchronous-rectified-step-down-converter/",
+    "https://docs.rs-online.com/b924/A700000013716646.pdf",
+    "https://www.ti.com/lit/ds/symlink/lm2596.pdf"
+   ],
+   "design_impact": "Never use a Mini360 on 24 V. On 24 V use an MP1584EN module (NopSCADlib models it at 22 × 17 mm; check the input capacitor is rated 35 V or more) or a 40 V-class LM2596 module. Mount it away from the antenna and radio module. Better still, skip the buck and use USB-C 5 V, which removes about 1–3 € and one noise source from the BOM."
+  },
+  {
+   "claim": "The only prior art found (daumemo) supports the 'hacked Blum switch' approach. Without its coin cell, the 23P5020 PCB ran from a 3.34 V regulator rail and was triggered by shorting two test pads for 0.8 s. It was packaged in a 3D-printed enclosure with a reed sensor. The author powered the Blum drive from a generic Mean Well 24 V PSU and also described a two-PSU variant.",
+   "confidence": "high",
+   "evidence": "daumemo.com: parts 'the wireless trigger switch 23P5020' and 'bumper 993.0530'; 'It consists of 5 parts: 2 enclosure parts, one button extention (grey), the PCB and a coin cell.'; 'The battery won't be used anymore.'; the Smart Implant's 3.3 V output measured '3.34 V' and 'was successfully used connecting it to the BLUM wireless switch'; green/orange pads 'are used to short the trigger button'; Parameter 156 = 8, i.e. a 0.8 s pulse; 'Power supply (24V, 2A or 0.5A if original Blum PSU is also used – see schematics below)'; 'The idea is to power everything from one power supply unit.'; 'Because I personally have Blum Aventos Servo-Drive powered from a Mean-well generic power supply.'; 'One is original Blum PSU used for the servo-drive. The second is used to power the DIY device.'; assembly: 'Put the button and a metal plate inside the cover', then 'Insert the modified PCB'; 'Two 2.5 mm screws (length around 5mm)'; wiring '0.22 mm2' internal, '0.5 mm2' power; 'Magnetic sensor with OD 8mm and a magnet'. STLs: Thingiverse thing:7293224 and MakerWorld 'DIY Blum to Z-wave adapter enclosure'. The Thingiverse page returned HTTP 403 and was not fetched.",
+   "sources": [
+    "https://daumemo.com/how-do-you-connect-a-blum-servo-drive-to-z-wave-home-assistant-system/",
+    "https://www.thingiverse.com/thing:7293224"
+   ],
+   "design_impact": "The 3V3 rail of any candidate board can power the switch PCB, and a 0.8 s pulse is a proven press length. The enclosure must take the Blum PCB together with its grey button extension and metal plate (or the whole original 2-part housing), M2.5×5 screws, and a reed cable with strain relief. Choose the two-PSU variant so the Blum PSU is left untouched."
+  },
+  {
+   "claim": "The Seeed XIAO ESP32-C3 is the best default board. It measures 21 × 17.8 mm and has 11 GPIO including 1 SPI. The 3V3 LDO is rated 500 mA (the datasheet figure to design with). It has a LiPo charger (380 mA fast), 44 µA deep sleep and a U.FL antenna that is supplied and required. Price is about €5–8 in the EU.",
+   "confidence": "high",
+   "evidence": "Seeed industrial datasheet (SKU 113991054, 'UPDATED 2026-10-23', 'PRICE $4.90(Excl. VAT)'): 'Dimensions 21 x 17.8mm'; 'Interface 1x UART 1x IIC 1x SPI 11x GPIO(PWM) 4x ADC'; 'Max 3.3V Output Current: 500mA, Test Condition: BAT Pin Input @ 3.8V'; 'Charging current: 380mA(Fast) / 40mA(Trickle)'; 'Deep Sleep Mode: 44 µA'; 'Wi-Fi Enabled Power Consumption: Active Mode: 75 mA / Modem-sleep Mode: 25 mA / Light-sleep Mode: 4 mA'; Part List 'Antenna x1'. Seeed wiki: 'This board comes included with an external antenna' (U.FL-R-SMT1); its Power Pins section says 'You can draw 700mA', which conflicts with the datasheet. Mischianti: 'this connector is mandatory; the board lacks a built-in ceramic antenna'; 'does not have a user-programmable LED'. Shops on 2026-11-05: Kiwi Electronics '€ 4.89' ex VAT (search snippet: €5.82 incl.), BerryBase '€7.90 incl. VAT'. Retailers list 21 × 17.5 mm.",
+   "sources": [
+    "https://files.seeedstudio.com/Bazaar/product_pdf/113991054.pdf",
+    "https://wiki.seeedstudio.com/XIAO_ESP32C3_Getting_Started/",
+    "https://mischianti.org/seeed-studio-xiao-esp32-c3-high-resolution-pinout-datasheet-schema-and-specs/",
+    "https://www.kiwi-electronics.com/en/seeed-studio-xiao-esp32c3-11039",
+    "https://www.berrybase.de/en/seeed-studio-xiao-esp32-c3-winziges-iot-dev-board-wlan-bt5.0-akku-lademanagement-antenne-3-3v-01a0909a302372b084743232ff6b5d4b"
+   ],
+   "design_impact": "Budget the 3V3 rail at 500 mA, which covers an SPI radio (about 15 mA) plus a hacked Blum PCB. The enclosure needs a flat inner face for the supplied flexible antenna and a routing path for its cable. Add an external status LED under a light pipe, since the board has none. Wi-Fi active draws 75 mA, about 0.4 W at 5 V, so any 5 V/1 A USB-C adapter is enough."
+  },
+  {
+   "claim": "On the XIAO ESP32-C3, three of the 11 pins are strapping pins (D0 = GPIO2, D8 = GPIO8/SCK, D9 = GPIO9/MISO). D6 is UART0 TX (GPIO21), and only D0–D3 can wake the board from deep sleep. These limits drive the pin map.",
+   "confidence": "high",
+   "evidence": "Seeed wiki pin map: D0 GPIO2, D1 GPIO3, D2 GPIO4, D3 GPIO5, D4 GPIO6 (SDA), D5 GPIO7 (SCL), D6 GPIO21 (TX, U0TXD), D7 GPIO20 (RX), D8 GPIO8 (SCK), D9 GPIO9 (MISO), D10 GPIO10 (MOSI). 'GPIO2, GPIO8 and GPIO9 in the chip are Strapping Pins' and their levels 'may prevent your XIAO from uploading or executing the program'. 'the pins that support wake-up are D0~D3'. Mischianti: GPIO2 'Must be floating or HIGH during boot'; GPIO9 'Tied to the BOOT Button. Holding LOW enters Download Mode'; GPIO21 'Avoid using as an input'.",
+   "sources": [
+    "https://wiki.seeedstudio.com/XIAO_ESP32C3_Getting_Started/",
+    "https://mischianti.org/seeed-studio-xiao-esp32-c3-high-resolution-pinout-datasheet-schema-and-specs/"
+   ],
+   "design_impact": "Suggested map for the SPI-radio variant:\n- D8 SCK, D9 MISO, D10 MOSI. Add a 10 kΩ pull-up on CSN so the radio's MISO stays high-Z at boot.\n- D7 CSN, D6 CE (output only).\n- D1 radio IRQ.\n- D2 reed (wake-capable), D3 cancel button (wake-capable).\n- D4 LED, D5 opto or MOSFET 'press' output.\n- D0 spare, with no pull-down.\nThe SPI variant uses 10 of 11 pins; the hacked-switch variant needs only 4. Do not drive the press output from D0, D6, D8 or D9. This is an inference: boot-time UART output or strapping levels could create a false button press on every reset."
+  },
+  {
+   "claim": "The ESP32-C3 SuperMini is the cheapest option at about €2–6, but it is a weaker platform: the vendor admits weak Wi-Fi caused by the antenna design, there is no charger, the power LED is always on, and the LDO varies by board.",
+   "confidence": "medium",
+   "evidence": "Mischianti: 'Dimensions: 22.5 × 18 mm'; 'Regulated 3.3 V up to 500 mA'; deep sleep '~43 µA (but you must remove the POW LED)'. LaskaKit, fetched 2026-11-05: '€6,09' incl. VAT / '€5,03 excl. VAT'; '23 × 18 mm'; '12×' GPIO; vendor statement 'These boards exhibit a weak WiFi signal due to an inappropriately chosen antenna design and its surroundings'; vendor reply that 5V and USB are directly connected; no charger. Elektor: 'this tiny antenna significantly limits the usable Wi-Fi range, due to its design', 'costing around €2'. Hackster/Peter Neufeld: a 31 mm λ/4 wire mod gave a 10 dB improvement (search snippet). A third-party source says some boards use 200 mA XC6206 LDOs that brown out during Wi-Fi bursts (search snippet, unverified). eBay.de listings were about €2.37–5.11 (snippets).",
+   "sources": [
+    "https://mischianti.org/?p=32826",
+    "https://www.laskakit.cz/en/esp32-c3-super-mini-wifi-bluetooth-modul",
+    "https://www.elektormagazine.com/articles/boosting-wifi-range-of-the-esp32c3-supermini-antenna-mod",
+    "https://www.hackster.io/news/peter-neufeld-boosts-the-espressif-esp32-c3-supermini-module-s-wi-fi-range-with-a-bit-of-wire-005b9b187c57"
+   ],
+   "design_impact": "Good enough for in-cabinet control where the Blum link (1 m or less) runs through a separate radio module or the hacked switch. If Wi-Fi to a router outside the cabinet matters, plan the 31 mm wire mod or use the XIAO with its U.FL antenna. Not suitable for battery operation. Check the LDO marking before loading its 3V3 rail with the radio and the Blum PCB. Existing cases were found on MakerWorld and Printables."
+  },
+  {
+   "claim": "The XIAO ESP32-S3 has the same 21 × 17.8 mm, 11-GPIO footprint, a stronger 3V3 rail (700 mA), lower deep sleep (14 µA) and a U.FL antenna, for €6.65 ex VAT. It is overkill for this task unless the lower sleep current matters.",
+   "confidence": "high",
+   "evidence": "Seeed wiki: 'XIAO ESP32-S3 and Plus: 21 x 17.8mm'; '11x GPIO(PWM)'; D8 GPIO7 SCK, D9 GPIO8 MISO, D10 GPIO9 MOSI; strapping 'GPIO0 and GPIO46' (boot mode), 'GPIO45' (VDD_SPI), 'JTAG signal source – GPIO3' (D2); 'You can draw 700mA'; 'Deep Sleep Mode: 14μA'; charging table ambiguous ('100mA(Fast)' or '50mA(Fast)'); U.FL antenna included; thermal notes include a peak backside temperature of '63.6°C' without a heat sink (camera use). DigiKey DE, 2026-11-05: '€6.65 excl. VAT / €7.91350 incl. VAT', 9,369 in stock.",
+   "sources": [
+    "https://wiki.seeedstudio.com/xiao_esp32s3_getting_started/",
+    "https://www.digikey.de/en/products/detail/seeed-technology-co-ltd/113991114/19285530"
+   ],
+   "design_impact": "Pick the S3 only for the battery variant (14 µA vs 44 µA) or if more RAM is needed. It fits the same enclosure as the C3. Without a camera its heat is negligible, so no vents are needed."
+  },
+  {
+   "claim": "The M5Stack AtomS3 Lite (24 × 24 × 9.5 mm, ESP32-S3FN8) comes already enclosed with USB-C and a built-in antenna. It exposes only 6 GPIO plus a 2-signal HY2.0-4P port, so 8 GPIO in total.",
+   "confidence": "high",
+   "evidence": "M5Stack docs: '24.0 x 24.0 x 9.5mm'; 'ESP32-S3FN8 @ Xtensa® 32-bit LX7 dual-core processor, clock frequency 240MHz'; 'IO Interface ×6: G5/G6/G7/G8/G38/G39'; HY2.0-4P port 'GND, 5V, G2, G1'; 'Power Voltage 5V', 'Power Method Type-C'; 'built-in 3D antenna'. Prices from search snippets: DigiKey about €7.96–8.22 incl. VAT, RS €9.79–9.95 incl. VAT, Tinytronics €10.75.",
+   "sources": [
+    "https://docs.m5stack.com/en/core/AtomS3%20Lite",
+    "https://www.tinytronics.nl/nl/development-boards/microcontroller-boards/met-wi-fi/m5stack-atom-s3-lite-esp32-s3-development-board",
+    "https://ie.rs-online.com/web/p/development-tool-accessories/0839055"
+   ],
+   "design_impact": "A good fit for the hacked-switch variant: press output, reed, and the built-in button and LED described by retailers (GPIO numbers not on the M5 page). For an SPI radio, 8 GPIO is tight, and the radio module and Blum PCB still need a custom box, so its own case brings little benefit."
+  },
+  {
+   "claim": "Larger ESP boards are an option when wiring convenience matters more than size. The LOLIN C3 mini measures 34.3 × 25.4 mm with ESP32-C3FH4 and 12 IO. The classic ESP32-DevKitC V4 has many pins, but Espressif publishes its size only as a drawing (third-party figure about 54 × 28 mm).",
+   "confidence": "medium",
+   "evidence": "wemos.cc C3 mini page: '34.3*25.4mm', 'based ESP32-C3FH4', '12x IO'; versions V2.1.0 'lastest version' and V1.0.0. Espressif DevKitC V4 guide: module options include 'ESP32-WROOM-32E', 'ESP32-WROVER-E' and others; power options 'Micro USB port, default power supply', '5V and GND header pins', '3V3 and GND header pins', from 'one and only one of the options above'; the dimension section has only an image. Cirkit Designer lists 'Dimensions | 54mm x 28mm'. NopSCADlib's similar ESP32_DOIT_V1 model: 'l = 51.45, w = 28.33'. YAPP_Box ships an example 'YAPP_WemosD1mini_v30.scad'.",
+   "sources": [
+    "https://www.wemos.cc/en/latest/c3/c3_mini.html",
+    "https://docs.espressif.com/projects/esp-idf/en/v5.2.1/esp32/hw-reference/esp32/get-started-devkitc.html",
+    "https://docs.cirkitdesigner.com/component/01babf62-664c-4d89-9062-18f2cac43d3f/esp32-devkitc-v4",
+    "https://raw.githubusercontent.com/nophead/NopSCADlib/master/vitamins/pcbs.scad",
+    "https://github.com/mrWheel/YAPP_Box/tree/main/examples"
+   ],
+   "design_impact": "Use a DevKitC only on the bench for protocol work. For the final device it roughly triples the enclosure footprint and its PCB antenna must sit at the box edge, at least 15 mm from metal. The LOLIN C3 mini is the middle option and gets a ready YAPP starting point via the D1 mini example; measure the real board before printing."
+  },
+  {
+   "claim": "nRF52840 boards are the single-chip alternative if the Blum protocol is Nordic-compatible. The chip's radio supports proprietary 2.4 GHz at 1 and 2 Mbps and works over the air with nRF24L parts, but it has no 250 kbps mode. Candidate boards: XIAO nRF52840 (21 × 17.8 mm, 11 GPIO, onboard antenna, BQ25101 charger, under 5 µA standby, €11.99), nice!nano v2, Feather nRF52840 Express (€30.90) and the Nordic nRF52840 Dongle (€11.64 incl. VAT).",
+   "confidence": "medium",
+   "evidence": "nRF52840 Product Specification v1.11 (search snippet): 'Supported data rates: Proprietary 2.4 GHz – 2 Mbps, 1 Mbps' and on-air compatible 'with nRF52, nRF51, nRF24L, and nRF24AP Series'. Nordic DevZone: 'no 250KBPS mode in the nRF52840'; 'nrf_esb library ... only support Enhanced Shockburst' (snippets). Seeed XIAO nRF52840 wiki: '21 x 17.8mm', '11xGPIO(PWM)', D8–D10 = P1.13/P1.14/P1.15 (SPI), 'Bluetooth 5.0 with onboard antenna', charger 'BQ25101', 'approximately 50 mA or 100 mA using P0.13', 'Standby power consumption is less than 5μA', warning about P0.14/P0.31 and the '3.6V' limit; 3V3 output current not specified. Reichelt, 2026-11-05: '€11.99' incl. VAT with header (no-header version €9.40 per snippet, temporarily unavailable). nice!nano v2: 'Length - 34.1mm, Width - 18.3mm, Height - 3.3mm', '21 I/O' (Mechboards snippet), $24.99 (reach.dog). Feather nRF52840 Express: '51mm x 23mm x 7.2mm', BerryBase '€30.90 incl. VAT'. nRF52840 Dongle PCA10059, DigiKey DE: '€9.78 excl. VAT / €11.64 incl. VAT', 1,541 in stock; size 46 × 15.24 mm from one secondary source.",
+   "sources": [
+    "https://www.farnell.com/datasheets/4719976.pdf",
+    "https://devzone.nordicsemi.com/f/nordic-q-a/34370/how-to-communicate-with-esb-rf-with-nrf52840",
+    "https://wiki.seeedstudio.com/XIAO_BLE/",
+    "https://www.reichelt.com/de/en/shop/product/xiao_nrf52840_bt5_0_with_header-406867",
+    "https://www.mechboards.co.uk/products/nice-nano-v2",
+    "https://www.berrybase.de/en/adafruit-feather-nrf52840-express",
+    "https://www.digikey.de/en/products/detail/nordic-semiconductor-asa/NRF52840-DONGLE/9491124"
+   ],
+   "design_impact": "Decision depends on the RF angle's chip and data-rate findings:\n- Nordic-style GFSK at 1 or 2 Mbps: one XIAO nRF52840 can listen, replay, run the timer, read the reed and drive the LED, with no SPI module. It has no Wi-Fi and uses BLE for setup.\n- 250 kbps, or a TI or other chip: use an ESP32 plus an SPI module (nRF24L01+ or CC2500).\nThe €11.64 dongle is a cheap Nordic-supported bench sniffer for the research phase."
+  },
+  {
+   "claim": "Cross-link (RF angle): both the Blum switch and the drive use 2.404–2.452 GHz at up to +4 dBm, bidirectional, with a typical range of 10 m. The band leaves out the BLE advertising channels (2402 and 2480 MHz), so the link is most likely proprietary. The ESP32's built-in Wi-Fi/BLE radio is therefore unlikely to talk to it directly.",
+   "confidence": "medium",
+   "evidence": "Blum leaflet p.30, 'SERVO-DRIVE switch': 'Frequency band: 2.404 to 2.452 GHz'; 'Transmission method: Bidirectional, via a coded wire[less]'; 'Range: typically 10 m (depending on material and contents)'; 'Battery supply: 3 V Lithium button cell CR2032'; 'Maximum radio-frequency power: +4 dBm / 2.5 mW'. Drive units: 'Frequency band: 2.404 to 2.452 GHz', '+4 dBm / 2.5 mW'. The conclusion about BLE and the ESP32 PHY is my own inference, not from a source.",
+   "sources": [
+    "https://fccid.io/m/d1b5fcb86d3083a1873b97676a0f2a009907166fb423cf3f44e77145eb2c5ac7.pdf"
+   ],
+   "design_impact": "Plan for either an external radio (SPI module or nRF52840) or the hacked Blum switch; the ESP32's radio is only for Wi-Fi/BLE to the user. The band overlaps Wi-Fi channels 1–9 (inference), so keep the ESP32's Wi-Fi idle or off while the external radio is receiving or sending, and test for interference."
+  },
+  {
+   "claim": "Inside one cabinet, antenna placement is not critical for the Blum link, but metal proximity and cable routing still matter. Espressif recommends at least 15 mm clearance around a PCB antenna inside the housing and keeping USB and UART lines away from it.",
+   "confidence": "high",
+   "evidence": "Espressif ESP32-C3 Hardware Design Guidelines (PCB layout): 'Ensure that the PCB antenna on the base board also has a sufficiently large clearance area inside the housing.' 'A clearance of at least 15 mm is recommended in all directions.' 'the USB port, USB-to-serial chip, UART signal lines (including traces, vias, test points, header pins, etc.) must be as far away from the antenna as possible.' 'The RF antenna should be placed away from high-frequency components, such as crystals'. Blum: 'Range: typically 10 m'. Free-space path loss (my calculation): FSPL[dB] = 20·log10(d/m) + 20·log10(f/MHz) − 27.55 gives 40.2 dB at 1 m and 60.2 dB at 10 m for 2440 MHz, so a 1 m in-cabinet link has about 20 dB more margin than Blum's rated 10 m.",
+   "sources": [
+    "https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32c3/pcb-layout-design.html",
+    "https://fccid.io/m/d1b5fcb86d3083a1873b97676a0f2a009907166fb423cf3f44e77145eb2c5ac7.pdf"
+   ],
+   "design_impact": "Place the box so the antenna (XIAO FPC antenna stuck to the inside of the lid, or a module's PCB antenna at the box edge) is at least 15 mm from the metal lift mechanism and arms, the drive housing and the transformer. Route the USB cable, buck converter and reed wires away from the antenna. Orientation can be fixed by testing RSSI in place (inference). Mounting near where the original switch sits reproduces the RF geometry Blum designed for (inference)."
+  },
+  {
+   "claim": "PLA and PETG walls are effectively transparent at 2.4 GHz: εr is about 2.4–2.75 and tanδ about 0.007–0.01 for PLA, and PETG is similar. Conductive (carbon-loaded) filaments do shield and should be avoided near the antenna.",
+   "confidence": "medium",
+   "evidence": "ResearchGate PLA studies (search snippets): a 100% solid printed block 'measured 2.40 for dielectric constant at 2.4 GHz'; 100%-infill PLA 'permittivity of 2.64 and a loss tangent of about 0.0071'; another study 'loss tangent at roughly 10^-2' and 'PLA permittivity range of 2.45 to 2.75'. University of Arkansas thesis (W-band): 'PLA has the highest relative permittivity ... at 2.724 and the PETG has the lowest permittivity at 2.675'; 'Losses were small (below 0.045 for all samples)'. Carbon-black PLA composite study (PMC10974157): at 4.3 mm the '10 dB bandwidth covered the entire X-band' (8.2–12.4 GHz, not 2.4 GHz). My calculation: absorption ≈ 27.3·√εr·tanδ·d/λ0 = 27.3·1.64·0.01·(2 mm/123 mm) ≈ 0.007 dB for a 2 mm wall. No pure-PETG value at 2.4 GHz was found.",
+   "sources": [
+    "https://www.researchgate.net/publication/313543263_Complex_permittivity_and_anisotropy_measurement_of_3D-printed_PLA_at_microwaves_and_millimeter-waves",
+    "https://www.researchgate.net/figure/Dielectric-PLA-parameter-with-varying-the-infill-percentage_tbl1_348896735",
+    "https://scholarworks.uark.edu/eleguht/85/",
+    "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10974157/"
+   ],
+   "design_impact": "Any ordinary PLA or PETG with 1.6–2.5 mm walls is fine. Do not print the lid in CF-PLA, CF-PETG, conductive or metal-filled filament. Leave a few mm between a PCB antenna and the wall to limit detuning (inference). The flexible antenna is meant to be stuck onto plastic, so mount it flat on the lid."
+  },
+  {
+   "claim": "Blum's installation constraints apply to the add-on device: cables must not touch moving parts, the transformer must not be covered and needs 30 mm clearance, use only in dry, enclosed rooms at 0–40 °C ambient, and Blum recommends a switched outlet for the transformer.",
+   "confidence": "high",
+   "evidence": "Blum leaflet p.4: 'Neither the Blum transformer nor any cabling should come into contact with moving parts.'; p.3 intended use 'In dry, enclosed rooms.'; technical data 'Ambient temperature: 0 to +40°C / 5 to 80% r.h. non condensing'; p.5 NOTE: 'we recommend connecting the Blum transformer to a switched outlet.' ManualsLib Blum manual: 'Do not cover the SERVO-DRIVE power supply unit with cloths or other items – danger of overheating.' and a 30 mm safety distance for air circulation.",
+   "sources": [
+    "https://fccid.io/m/d1b5fcb86d3083a1873b97676a0f2a009907166fb423cf3f44e77145eb2c5ac7.pdf",
+    "https://www.manualslib.com/manual/3481111/Blum-Servo-Drive.html"
+   ],
+   "design_impact": "Route the reed and USB cables outside the lift-arm sweep, with cable clips and strain relief. Do not mount the box on or against the transformer, and keep it at least 30 mm away. PLA is fine for 0–40 °C; PETG adds margin if the cabinet sits above heat sources (inference). Firmware should expect the drive to be unpowered (switched outlet off): give up after a limited number of CLOSE attempts and indicate the failure."
+  },
+  {
+   "claim": "Cross-link (sensing): the flap can be opened without any radio event. Blum documents opening by pressing the front, manual opening, stopping on collision, and power-failure behaviour that needs a switch touch afterwards. A reed or magnet sensor is therefore the reliable trigger and confirmation for the 5-minute auto-close.",
+   "confidence": "high",
+   "evidence": "Blum leaflet p.16: 'Press on the front ➢ The lift system opens automatically'; 'Press on the SERVO-DRIVE switch ➢ The lift system closes automatically'. p.17: 'The lift system can be opened or closed manually at any time without damaging SERVO-DRIVE for AVENTOS.'; 'The opening and closing action is interrupted automatically via the integrated collision detection feature when the front hits a body part or other object.' p.18: 'If the power supply is interrupted during the opening or closing process, the SERVO-DRIVE for AVENTOS lift system will remain in that position ... simply touch the switch to re-activate SERVO-DRIVE function.' daumemo used a 'Magnetic sensor with OD 8mm and a magnet' for open/closed state.",
+   "sources": [
+    "https://fccid.io/m/d1b5fcb86d3083a1873b97676a0f2a009907166fb423cf3f44e77145eb2c5ac7.pdf",
+    "https://daumemo.com/how-do-you-connect-a-blum-servo-drive-to-z-wave-home-assistant-system/"
+   ],
+   "design_impact": "Make the reed input standard, not optional. It starts the timer on any opening, confirms the CLOSE worked, and allows a limited retry if a collision or power glitch stopped the flap. The enclosure needs a cable exit with strain relief and a 2-pin connector (JST-XH/PH) for the reed lead. Wire the reed to a wake-capable pin (D1–D3 on the XIAO C3)."
+  },
+  {
+   "claim": "Battery power is only realistic for this setup: the MCU sleeps, a reed switch wakes it, the 5-minute wait runs as a deep-sleep timer, and CLOSE is a GPIO-driven press on a hacked Blum switch. A receiver that listens continuously, or a Wi-Fi-connected ESP32, needs USB power.",
+   "confidence": "medium",
+   "evidence": "nRF24L01+ Product Specification (search snippet of SparkFun copy): '13.5mA RX at 2Mbps air data rate', '11.3mA TX at 0dBm', '26µA in standby-I', '900nA in power down'. XIAO ESP32-C3 datasheet: 'Light-sleep Mode: 4 mA' (Wi-Fi enabled), 'Deep Sleep Mode: 44 µA', LiPo charging '380mA(Fast)'. XIAO ESP32-S3: 'Deep Sleep Mode: 14μA'. XIAO nRF52840: 'Standby power consumption is less than 5μA'. My calculations for 1000 mAh: 13.5 mA continuous RX ≈ 74 h (3 days); 4 mA Wi-Fi light sleep ≈ 250 h (10 days); 44 µA deep sleep ≈ 22,700 h (2.6 years, before LiPo self-discharge and wake events). Mischianti says battery capacity should be '370mAh or greater' for the 370–380 mA XIAO C3 charger unless the cell has protection.",
+   "sources": [
+    "https://cdn.sparkfun.com/assets/home_page_posts/2/6/7/3/nRF24L01P.pdf",
+    "https://files.seeedstudio.com/Bazaar/product_pdf/113991054.pdf",
+    "https://wiki.seeedstudio.com/xiao_esp32s3_getting_started/",
+    "https://wiki.seeedstudio.com/XIAO_BLE/",
+    "https://mischianti.org/seeed-studio-xiao-esp32-c3-high-resolution-pinout-datasheet-schema-and-specs/"
+   ],
+   "design_impact": "Default to USB-C power. For battery operation:\n- Use the hacked switch with a reed wake on D1–D3.\n- Use a protected 1S LiPo of at least 500 mAh on the XIAO BAT pads, and leave room for it in the box (about 35 × 25 × 8 mm cavity, estimate).\n- Choose a reed that is open while the flap is closed, or use a very high-value pull-up, so no current flows at rest (inference).\n- An opto lets the Blum PCB keep its own CR2032, so it draws nothing from the LiPo.\nA radio sniffer on battery would only work if the Blum switch transmits long or repeated bursts that allow duty-cycled listening (open question for the RF angle)."
+  },
+  {
+   "claim": "YAPP_Box (mrWheel, MIT) is the best-matched OpenSCAD generator. It provides PCB standoffs, screw connectors with insert sockets, cutouts on all six faces, snap joins, external mounting tabs, LED light tubes, push buttons and labels. Defaults: lid ridge clearance 0.3 mm, button clearance 0.25 mm, standoff-hole clearance 0.4 mm.",
+   "confidence": "high",
+   "evidence": "YAPPgenerator_v3.scad header: 'Version=\"v3.3.8 (2025-10-24)\"', 'TERMS OF USE: MIT License'. GitHub: latest tagged release 'v3.3' (2025-08-20), 529 stars. YAPP_Template_v3.scad: 'ridgeSlack = 0.3; // Gap between the inside of the lid and the outside of the base'; 'standoffHoleSlack = 0.4;'; 'printerLayerHeight = 0.2;'; Connectors: 'Standoffs with hole through base and socket in lid for screw type connections' with 'p(5) = insertDiameter' and 'n(g) = {yappSelfThreading}'; 'There are 6 cutouts one for each surface'; snapJoins with '{ yappSymmetric }'; Box Mounts: 'Mounting tabs on the outside of the box'; Light Tubes: 'p(7) = lensThickness (how much to leave on the top of the lid for the light to shine through 0 for open hole'; Push Buttons: capLength/capWidth/switchHeight/switchTravel/poleDiameter, 'p(15) = buttonSlack : Default= 0.25'; labelsPlane. Examples include 'YAPP_WemosD1mini_v30.scad', 'ESP32-CAM-USB_v30.scad', 'YAPP_Demo_lightTubes_v30.scad', 'YAPP_Demo_buttons_v31.scad', 'YAPP_Demo_boxMounts_v31.scad', 'YAPP_Test_SnapJoints_v30.scad'. There is no XIAO example.",
+   "sources": [
+    "https://github.com/mrWheel/YAPP_Box",
+    "https://raw.githubusercontent.com/mrWheel/YAPP_Box/main/YAPPgenerator_v3.scad",
+    "https://raw.githubusercontent.com/mrWheel/YAPP_Box/main/YAPP_Template_v3.scad",
+    "https://mrwheel-docs.gitbook.io/yappgenerator_en/light-tubes"
+   ],
+   "design_impact": "Build the enclosure from YAPP_Template_v3 with:\n- a pcb list for the XIAO, the radio module or Blum PCB, and a perfboard;\n- a USB-C cutout on the front;\n- a light tube over the status LED with a thin lens of about 2 layers;\n- a pushButtons entry for a 6×6 mm cancel tact switch;\n- connectors with M2 insert sockets;\n- boxMounts tabs for screws into the carcass, or a flat base for VHB tape;\n- a keyed cutout for the reed cable.\nMIT lets the user publish the result freely."
+  },
+  {
+   "claim": "Supporting libraries:\n- BOSL2 (BSD-2-Clause, requires OpenSCAD 2021.01+): snap pins and sockets, rabbit clips, dovetails, knuckle and living hinges, snap locks, hex vent panels.\n- NopSCADlib (GPL-3.0): ready PCB models (XIAO 21×18×1.2 with USB-C, MP1584EN 22×17, a tiny 3 A buck 20×11, TP4056 26.2×17.5, ESP32 DOIT 51.45×28.33), heat-set insert holes, and printed parts (printed_box, pcb_mount, led_bezel, cable_grommets, cable_clip).\n- Ultimate Box Maker: CC BY-NC 3.0 and dormant since 2019.",
+   "confidence": "high",
+   "evidence": "BOSL2 README: 'Requires OpenSCAD 2021.01 or later.'; GitHub license BSD-2-Clause, 2,446 stars, pushed 2026-11-05. joiners.scad: 'Creates a snap-pin that can slot into a {{snap_pin_socket()}} to join two parts.', 'Creates a rabbit-eared clip that can snap into a slot.', dovetail(), half_joiner(). hinges.scad: knuckle_hinge(), living_hinge_mask(), 'Creates a snap-lock shape.' (snap_lock), snap_socket(). walls.scad: 'Create a hexagon braced panel of any shape' (hex_panel). NopSCADlib pcbs.scad: 'XIAO = [\"XIAO\", \"Seeeduino XIAO\", 21, 18, 1.2' with '[21 + 1.76 - 7.35 / 2, 9, 0, \"usb_C\"]'; 'MP1584EN ... 22, 17, 1.25'; 'tiny_buck ... [20, 11, 1.6]'; 'TP4056 ... 26.2, 17.5'; 'ESP32_DOIT_V1 = let(l = 51.45, w = 28.33'. inserts.scad: 'F1BM2 = [ \"F1BM2\", 4.0, 3.6, 3.2, 2' and 'F1BM2p5 = [ \"F1BM2p5\", 5.8, 4.6, 4.0, 2.5', with 'insert_hole_radius(type) = type[3] / 2; //! Radius of the required hole in the plastic'. printed_box.scad: 'A fully parametric 3D printed case that can be customised with cutouts and additions specified by children.' NopSCADlib license GPL-3.0, 1,662 stars. Ultimate Box Maker: original by Heartman under CC BY-NC 3.0 (search snippet); jbebel/Ultimate-Box-Maker last push 2019-12-27. Other repos: erlancassiano/Enclosure-CAD (MIT, 2026), spierepf/Enclosure (GPL-3.0, 2021), harrydobbs/PCB-Enclosure-Generator (no license).",
+   "sources": [
+    "https://github.com/BelfrySCAD/BOSL2",
+    "https://raw.githubusercontent.com/BelfrySCAD/BOSL2/master/joiners.scad",
+    "https://raw.githubusercontent.com/BelfrySCAD/BOSL2/master/hinges.scad",
+    "https://github.com/nophead/NopSCADlib",
+    "https://raw.githubusercontent.com/nophead/NopSCADlib/master/vitamins/pcbs.scad",
+    "https://raw.githubusercontent.com/nophead/NopSCADlib/master/vitamins/inserts.scad",
+    "https://github.com/jbebel/Ultimate-Box-Maker",
+    "https://hackaday.com/2018/03/02/printed-it-custom-enclosure-generator"
+   ],
+   "design_impact": "Use NopSCADlib's XIAO and MP1584EN models for fit checks only. Its XIAO model is the SAMD21 board with the same footprint and a USB-C receptacle sticking out about 1.76 mm past the 21 mm edge, which the wall cutout must allow for. Keep NopSCADlib out of any published file, or accept GPL-3.0. Use BOSL2 for snap pins or locks and hex vents if needed. Avoid Ultimate Box Maker (non-commercial licence, unmaintained)."
+  },
+  {
+   "claim": "FDM tolerance and insert values to use as parameters:\n- CNC Kitchen M2×3 inserts: hole 3.2 mm, wall ≥1.3 mm.\n- CNC Kitchen M2.5×4 inserts: hole 4.0 mm, wall ≥1.6 mm.\n- Moving fits: about 0.4–0.5 mm clearance. Press fits: 0.1–0.2 mm interference.\n- Snap arms must flex within the print plane (XY).",
+   "confidence": "medium",
+   "evidence": "3DJake (CNC Kitchen insert table): 'M2 | 3.0 | 3.6 | 3.2 | 1.3' and 'M2.5 | 4.0 | 4.6 | 4.0 | 1.6' (length L, insert ⌀ D1, hole ⌀ D3, min wall W); price 'CHF 9.92' per 100 M2 and 'CHF 11.40' per 100 M2.5. NopSCADlib agrees: F1BM2 hole 3.2, F1BM2p5 hole 4.0. A Ruthex retailer guide (3ddruckboss snippet) gives M2.5 as 3.6–3.8 mm hole, 5.8 mm long, so hole size depends on the brand. Weerg: 'orient the component so that the hook flexes in the XY plane'; movable fits 'FDM: clearance of 0.4 or 0.5 mm'; press fits 'interference of 0.1 or 0.2 mm, to be verified with a prototype'; 'the length of the arm should be at least 5 times the thickness at the base'; base radius 'at least 0.5 mm'. Get3DPrints (snippet): '0.2–0.3mm' per side for snug fits. YAPP defaults 0.25–0.4 mm.",
+   "sources": [
+    "https://3djake.ch/en-CH/cnc-kitchen/threaded-inserts-m25-standard",
+    "https://www.3djake.com/cnc-kitchen/threaded-inserts-m2-standard",
+    "https://www.weerg.com/guides/3d-printed-interlocking-parts",
+    "https://3ddruckboss.de/collections/ruthex-gewindeeinsatze",
+    "https://www.get3dprints.com/guides/3d-printing-tolerances-and-accuracy"
+   ],
+   "design_impact": "Make the insert hole diameter a parameter matched to the insert brand (CNC Kitchen M2 = 3.2 mm, M2.5 = 4.0 mm). Bosses need walls of at least 1.3/1.6 mm, so a boss is about 6–7 mm across. Clearances: lid 0.3 mm, button caps 0.25 mm, sliding parts 0.4–0.5 mm. Print base and lid open side up so snap hooks flex in XY. Print a test coupon first. M2 inserts are the better fit for these small boxes and cost about €0.10 each."
+  },
+  {
+   "claim": "Mounting inside the cabinet: VHB tape needs the 3M surface preparation, screws can go through YAPP boxMounts tabs, and magnets need a steel counter-plate because the carcass is not magnetic.",
+   "confidence": "medium",
+   "evidence": "3M VHB technical bulletin (search snippet): 'Most substrates are best prepared by cleaning with a 50:50 mixture of isopropyl alcohol (IPA) and water prior to applying 3M™ VHB™ Tapes.' The 3M application guide lists 70% IPA for dust and fingerprints and acetone for oily surfaces (snippet). YAPP: 'Box Mounts: Mounting tabs on the outside of the box' with screwDiameter and slot width. Chipboard and melamine carcasses are non-ferrous (inference).",
+   "sources": [
+    "https://www.3m.com/3m/en_us/vhb-tapes-us/resources/applying-3m-vhb-tapes",
+    "https://cdn.shopify.com/s/files/1/1955/3843/files/3M_Double-Sided_Tapes_User_s_Guidance.pdf",
+    "https://raw.githubusercontent.com/mrWheel/YAPP_Box/main/YAPP_Template_v3.scad"
+   ],
+   "design_impact": "Give the box a flat base, at least 40 × 30 mm, for a VHB patch, cleaned with 50:50 IPA/water. Optionally add 2 boxMounts tabs for about 3.5 mm chipboard screws, for removal and vibration from the lift. Mount the box where the lift arms do not sweep, at least 15 mm from metal and at least 30 mm from the transformer."
+  },
+  {
+   "claim": "Existing enclosure designs exist for the candidate boards (XIAO ESP32-C3/S3 and ESP32-C3 SuperMini), but only daumemo's (Fibaro/Z-Wave) holds a Blum switch PCB. No ESP32 + Blum OpenSCAD design was found.",
+   "confidence": "low",
+   "evidence": "Search snippets only; all pages returned HTTP 403 to automated fetch and were not opened:\n- daumemo 'Blum Servo Drive to Z-Wave Smart Home DIY Adapter Device' (Thingiverse thing:7293224; snippet says CC Attribution-ShareAlike) and MakerWorld 'DIY Blum to Z-wave adapter enclosure'.\n- XIAO ESP32C3: Printables 539193 (blalor) 'small-as-possible enclosure for the Xiao board and external antenna with SMA bulkhead connector'; Printables 1829666 'XiaoBackpack' (USB-C cutout, BOOT access, antenna wire through the back); Printables 612603 holder for XIAO C3/S3 'includes room for the aerial'; Printables 1044242; MakerWorld 66423 'Minimal Enclosure'; MakerWorld 2872701 (XIAO ESP32 + antenna + 18650).\n- SuperMini: MakerWorld 727792 (maruel, STEP files), 1072508 (slim/middle/big), 1344934 (extended, with lid latch); Printables 1119620 (also fits TP4056); Tindie ERMOS 28 × 23 × 8 mm case.",
+   "sources": [
+    "https://www.thingiverse.com/thing:7293224",
+    "https://www.printables.com/model/539193-seeed-studio-xiao-esp32c3-enclosure",
+    "https://www.printables.com/model/1829666-xiaobackpack-xiao-esp32-c3-mounting-case",
+    "https://www.printables.com/model/612603-holder-for-seeed-xiao-esp32c3-and-esp32s3/related",
+    "https://makerworld.com/en/models/66423-seeed-studio-xiao-esp32c3-minimal-enclosure",
+    "https://makerworld.com/en/models/727792-compact-enclosure-for-esp32-c3-supermini",
+    "https://www.printables.com/model/1119620-esp32-c3-super-mini-case"
+   ],
+   "design_impact": "No drop-in design exists. Write a new YAPP-based OpenSCAD file. Use daumemo's STL only as a size reference for the Blum PCB pocket; it is share-alike, so copying its geometry would pass that licence on. The XIAO cases confirm the usual details: a USB-C slot, access to the BOOT/RESET buttons, and an antenna on the lid or an SMA bulkhead."
+  },
+  {
+   "claim": "Blum switch facts relevant to the enclosure:\n- The 23P5020 housing is about 33.6 × 14.5 × 42 mm (retailer data) and costs €30.56; it replaces the 21P5020.\n- It runs on a CR2032.\n- Two switch versions exist (battery LED only, or battery plus 'Connect' LED).\n- A 21P5020 can contain either PCB 23P502L00 or 21P502L00.",
+   "confidence": "medium",
+   "evidence": "Schreinersache listings (search snippet; page 403): width 33.6 mm, height 14.5 mm, length 42 mm, drill ⌀ 35 mm (hole for mounting). Lignoshop, fetched 2026-11-05: '30,56 €/Stück' incl. VAT, 'Länge 42 mm', 'Der Schalter ist in den SERVO-DRIVE Abdeckkappen-Sets enthalten (HL/HS/HF)', '23P5020 ersetzt den alten Schalter 21P5020'. Blum leaflet p.18: 'The SERVO-DRIVE switch is battery-operated (CR2032).' Variant A shows '1 Battery display (LED)'; variant B '1 Battery display (LED), 2 Connect (LED)'. Supplier's Declaration of Conformity p.32: '23P5020, 21P5020 both with PCB 23P502L00' and '21P5020 with PCB 21P502L00'. EU DoC radio types: '23.A00L83, 23P5020, 21P5020 and Z10C5007'.",
+   "sources": [
+    "https://www.lignoshop.de/23p5020-servo-drive-schalter-weiss.html",
+    "https://shop.schreinersache.de/klappenbeschlaege/servo-drive-schalter-symmetrisch-seidenweiss",
+    "https://fccid.io/m/d1b5fcb86d3083a1873b97676a0f2a009907166fb423cf3f44e77145eb2c5ac7.pdf"
+   ],
+   "design_impact": "If the switch stays in its housing, the enclosure needs a pocket of about 35 × 44 × 16 mm, or a smaller one for the bare PCB once measured. With an ESP32 + radio or perfboard, the outer box is roughly 65 × 50 × 25 mm (estimate). A second switch (about €31) for hacking is the single largest BOM item. The PCB revision decides the test-pad positions, so check it before freezing the design."
+  },
+  {
+   "claim": "BOM template with approximate EU prices (Nov 2026). Verified prices came from shop pages fetched 2026-11-05; items marked 'est.' could not be checked because the WebSearch budget ran out.",
+   "confidence": "medium",
+   "evidence": "Verified:\n- XIAO ESP32-C3: €4.89 ex VAT (Kiwi) / €7.90 incl. (BerryBase); Seeed $4.90 ex VAT.\n- XIAO ESP32-S3: €6.65 ex / €7.91 incl. (DigiKey DE).\n- XIAO nRF52840 with header: €11.99 incl. (Reichelt).\n- nRF52840 Dongle: €9.78 ex / €11.64 incl. (DigiKey DE).\n- ESP32-C3 SuperMini: €6.09 incl. (LaskaKit); eBay about €2.4–5 (snippets).\n- AtomS3 Lite: about €8–11 incl. (snippets).\n- Feather nRF52840: €30.90 incl. (BerryBase).\n- Blum 23P5020 switch: €30.56 incl. (Lignoshop).\n- CNC Kitchen inserts: M2 CHF 9.92/100, M2.5 CHF 11.40/100 (3DJake CH).\nEstimates, not verified:\n- USB-C 5 V/1 A adapter + cable €5–12; reed contact with magnet €1–4; PC817 opto or PhotoMOS (AQY212/TLP222A class) €0.2–1.5.\n- nRF24L01+ module €1–3; CC2500 module €3–6; MP1584EN module €1–2; LM2596 module €2–3.\n- 6×6 mm tact switch + 3 mm LED + resistors €0.3; perfboard + JST connectors €1–2; M2 screws €0.05 each.\n- PLA/PETG 20–40 g ≈ €0.5–1; VHB roll €5–10; 1S LiPo 500–1000 mAh €5–8.",
+   "sources": [
+    "https://www.kiwi-electronics.com/en/seeed-studio-xiao-esp32c3-11039",
+    "https://www.berrybase.de/en/seeed-studio-xiao-esp32-c3-winziges-iot-dev-board-wlan-bt5.0-akku-lademanagement-antenne-3-3v-01a0909a302372b084743232ff6b5d4b",
+    "https://files.seeedstudio.com/Bazaar/product_pdf/113991054.pdf",
+    "https://www.digikey.de/en/products/detail/seeed-technology-co-ltd/113991114/19285530",
+    "https://www.reichelt.com/de/en/shop/product/xiao_nrf52840_bt5_0_with_header-406867",
+    "https://www.digikey.de/en/products/detail/nordic-semiconductor-asa/NRF52840-DONGLE/9491124",
+    "https://www.laskakit.cz/en/esp32-c3-super-mini-wifi-bluetooth-modul",
+    "https://www.berrybase.de/en/adafruit-feather-nrf52840-express",
+    "https://www.lignoshop.de/23p5020-servo-drive-schalter-weiss.html",
+    "https://www.3djake.com/cnc-kitchen/threaded-inserts-m2-standard",
+    "https://3djake.ch/en-CH/cnc-kitchen/threaded-inserts-m25-standard"
+   ],
+   "design_impact": "Indicative totals:\n- Variant A, hacked switch: XIAO C3 + second 23P5020 + opto + reed + LED/button + perfboard + inserts + filament + USB-C PSU ≈ €45–55 (about €37–45 if a USB adapter is reused); the Blum switch dominates.\n- Variant B, SPI radio (nRF24L01+ or CC2500): ≈ €15–25.\n- Variant C, XIAO nRF52840 alone (only if the protocol is Nordic-compatible at 1/2 Mbps): ≈ €20–30.\n- Battery add-on: +€5–8.\n- Research bench: nRF52840 Dongle €11.64."
+  },
+  {
+   "claim": "USB/5 V input details on the candidate boards:\n- XIAO ESP32-C3: feeding the 5 V pin requires a diode.\n- DevKitC: use exactly one of its three power inputs.\n- SuperMini: 5 V and USB VBUS are tied directly.\nUSB-C should be the only power input unless the design adds a diode.",
+   "confidence": "high",
+   "evidence": "Seeed XIAO ESP32-C3 wiki: the 5V pin can be used as input but you 'must have some sort of diode' between the external source and that pin; 'Input voltage (VIN): 5V'. Espressif DevKitC V4: power from 'one and only one of the options above' (Micro USB, 5V/GND pins, 3V3/GND pins). LaskaKit vendor reply: 5V and USB are directly connected on the SuperMini; 'Power input: 5V via USB-C or 3.3V via pin'.",
+   "sources": [
+    "https://wiki.seeedstudio.com/XIAO_ESP32C3_Getting_Started/",
+    "https://docs.espressif.com/projects/esp-idf/en/v5.2.1/esp32/hw-reference/esp32/get-started-devkitc.html",
+    "https://www.laskakit.cz/en/esp32-c3-super-mini-wifi-bluetooth-modul"
+   ],
+   "design_impact": "Keep the board's USB-C as the only power and programming input, with the enclosure cutout sized for the cable plug's overmold, not just the receptacle. If a buck or external 5 V is added, feed it through a Schottky diode so a USB cable plugged in for flashing cannot backfeed the supply."
+  }
+ ],
+ "negative_results": [
+  "The shared WebSearch budget (200 per turn, across all agents) ran out partway through. After that only direct fetches of known URLs and GitHub API file and metadata reads were used, no search engines. Not searched: LOLIN C3 mini v1.0.0 Wi-Fi issues, ESP32 DevKitC EU price, nRF24L01+/CC2500 module EU prices, USB-C CC pull-down resistors on SuperMini clones, power-bank auto-off, M5Stamp C3.",
+  "HTTP 403 to WebFetch, not circumvented: Thingiverse thing:7293224 (daumemo), Printables 539193, MakerWorld 727792, stlfinder 519054, shop.schreinersache.de, fccid.io/W95 listing. Their details rest on search snippets only.",
+  "monolithicpower.com returned a JavaScript client challenge for the MP1584 PDF and was not circumvented; the RS-hosted copy was used. An Arrow mirror download hung and was stopped.",
+  "No pure-PETG permittivity or loss tangent at 2.4 GHz was found. Only W-band values (PETG 2.675 vs PLA 2.724) and PETG/TiO2 composite data turned up.",
+  "No measured attenuation of carbon-black or carbon-fibre filaments at 2.4 GHz was found; the studies found were X-band (8.2–12.4 GHz).",
+  "No OpenSCAD source combining an ESP32 with a Blum switch was found. daumemo's design targets Fibaro Smart Implant/Z-Wave, and whether it ships OpenSCAD source is unconfirmed.",
+  "NopSCADlib has no model of the XIAO ESP32-C3, ESP32-C3 SuperMini, any nRF52840 board or the Mini360. Its 'XIAO' is the SAMD21 Seeeduino XIAO with the same footprint. YAPP_Box has no XIAO example.",
+  "Espressif's ESP32-DevKitC V4 guide gives no dimensions in text, only a drawing.",
+  "No official Blum dimension drawing for the 23P5020 or its PCB was found; the only figures are retailer values (33.6 × 14.5 × 42 mm).",
+  "Neither the Blum leaflet nor daumemo documents the switch's current draw at 3.3 V.",
+  "Seeed does not specify the XIAO nRF52840 3V3 output current. Adafruit/BerryBase pages do not give the Feather nRF52840 charger current.",
+  "3M cure-time and pressure figures (for example 20 min / 72 h / 15 psi) were not found in the 3M sources the search returned."
+ ],
+ "open_questions": [
+  "RF angle: which chip, modulation and data rate the Blum switch uses (Nordic ESB-like at 250 kbps or 1/2 Mbps, TI CC25xx, other). This decides between ESP32 + nRF24L01+/CC2500 and a single nRF52840; the nRF52840 has no 250 kbps mode.",
+  "How long and how often the switch transmits per press. This decides whether duty-cycled listening (battery operation of a sniffer) can ever work.",
+  "How much current the Blum PCB draws at 3.3 V, idle and while transmitting, and whether it does anything at power-up (pairing or announce) when it is powered from the ESP32's 3V3 rail and so restarts with every ESP32 reset.",
+  "Whether the Blum PCB's button pads are referenced to ground (open-drain GPIO or MOSFET is fine) or floating (needs a PhotoMOS or opto), and which polarity.",
+  "Whether the ESP32's own Wi-Fi transmissions (channels 1–9 overlap 2.404–2.452 GHz) desensitise an SPI receiver a few cm away or disturb the switch-to-drive link.",
+  "Whether ESP32-C3 SuperMini clones and other cheap boards have USB-C CC pull-down resistors, so that USB-C-to-C cables from PD chargers power them.",
+  "Exact PCB outline and test-pad positions of PCB 23P502L00 vs 21P502L00, needed for the enclosure pocket.",
+  "Exact size of the flexible antenna supplied with the XIAO ESP32-C3, for the antenna pad on the lid.",
+  "Exact ESP32-DevKitC V4 dimensions (third-party figure about 54 × 28 mm).",
+  "Whether the MakerWorld daumemo enclosure and the Printables XIAO cases include editable (SCAD/STEP) sources, and under which licences (pages blocked)."
+ ],
+ "questions_for_user": [
+  "Which AVENTOS type is it (HK top, HF, HS, HL, HK-S, ...) and what part number is on the SERVO-DRIVE drive unit label? Could you send a photo of the cabinet interior showing the lift mechanism, drive unit, Blum transformer and free mounting space?",
+  "Which switch do you have: the part number on its label (23P5020 or 21P5020), and does it show one LED (battery) or two LEDs (battery + 'Connect')? If you open it, what does the PCB marking say (23P502L00 or 21P502L00)?",
+  "Is there a mains socket or USB power inside or next to the cabinet? Which Blum transformer is installed (Z10NE030 24 W or Z10NA300 12 W), and is it on a switched outlet?",
+  "Do you want Wi-Fi/Home Assistant integration (status, remote cancel, logs), or a fully standalone box? This decides ESP32 vs nRF52840.",
+  "Would you buy a second Blum switch (about €31) to take apart and wire to the controller (keeping your original), or must the solution be purely radio-based?",
+  "Is the flap also opened by pressing the front or by hand? Should the 5-minute auto-close start on any opening (reed-triggered), or only after a switch press?",
+  "Must the device run on battery, or is USB power acceptable? If battery, what recharge interval is acceptable?",
+  "Your printer and materials: PLA or PETG, nozzle size, which heat-set inserts (CNC Kitchen or Ruthex, M2 or M2.5) and screws you have, and whether you prefer VHB tape or screws for mounting?",
+  "Roughly how much free space is there at the mounting spot (is about 65 × 50 × 25 mm OK), and what is the surface (melamine chipboard, lacquer, glass, metal)?",
+  "Which country are you in (for shop availability and radio rules)?"
+ ]
+}

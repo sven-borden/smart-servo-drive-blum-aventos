@@ -1,0 +1,305 @@
+{
+ "key_claims": [
+  {
+   "id": "C01",
+   "claim": "SERVO-DRIVE for AVENTOS opens electrically when the front is pressed (touch-to-open, using about 2 mm of distance-bumper travel) or when a paired radio switch is pressed, and the flap can be moved by hand at any time; front-press and manual openings involve no switch transmission, so a device that only decodes switch frames cannot detect most openings.",
+   "why_it_matters": "Changes the requirement from 'catch the OPEN command' to 'detect that the flap opened'. The design needs a flap-state sensor (reed or Hall sensor on the carcass, magnet on the flap) or radio notifications sent by the drive itself (C04). The 5-minute timer must start on any open transition and be cancelled by any close.",
+   "current_confidence": "high – stated in Blum manuals BA-139/7, MA-502/3 and MA-400/2; matches patents and user reports",
+   "sources": [
+    "https://www.blum.com/file/kla0031-ba-139_ba_dok_bau?country=de&language=de",
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sen_$aof_$v7.pdf",
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sde_$aof_$v7.pdf",
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf",
+    "https://eggersmannusa.com/wp-content/uploads/2017/12/Blum_ServoDrive_EN.pdf",
+    "https://www.blum.com/at/de/produkte/bewegungstechnologien/servo-drive/servo-drive-aventos/programm/",
+    "https://www.blum.com/us/en/products/motion-technologies/servo-drive/overview/",
+    "https://www.manualslib.de/manual/389920/Blum-Aventos-Hf.html?page=10",
+    "https://www.kuechen-forum.de/forum/themen/aventos-hf-mit-servodrive-manuell-oeffnen-aber-elektrisch-schliessen.25256/",
+    "https://patentimages.storage.googleapis.com/6b/97/c5/c411ba178ec4b2/US8066341.pdf"
+   ]
+  },
+  {
+   "id": "C02",
+   "claim": "Pressing the SERVO-DRIVE radio switch toggles the flap relative to its current position (a closed flap opens, an open flap closes), and neither the switch nor its frame carries the open/closed state.",
+   "why_it_matters": "A blind press five minutes later would re-open a flap that someone already closed. Every automatic press must therefore be gated by a sensed 'open and stationary' state and confirmed afterwards. This favours any route that can send an explicit close instead (C03).",
+   "current_confidence": "medium – Blum only says the switch 'triggers opening or closing' and its illustrations show closing; that it also opens rests on a Blum troubleshooting row, two user reports, the single switch command type reported by bluhm-de, and the patents",
+   "sources": [
+    "https://www.blum.com/file/kla0031-ba-139_ba_dok_bau?country=de&language=de",
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf",
+    "https://www.woodworker.de/forum/threads/aventos-hl-servo-drive.125962/",
+    "https://daumemo.com/how-do-you-connect-a-blum-servo-drive-to-z-wave-home-assistant-system/",
+    "https://shelly-forum.com/thread/27978-blum-servodrive-mit-shelly-uni-steuern/",
+    "https://www.c4forums.com/forums/topic/45942-blum-servo-drive/",
+    "https://www.bluhm-de.com/content/os-tools/en/projects/home-information-system/blum-servodrive-wireless-protocol-deciphered.html",
+    "https://www.blum.com/us/en/products/motion-technologies/servo-drive/servo-drive-aventos/assembly/",
+    "https://patentimages.storage.googleapis.com/36/28/13/dbfe09a61f9083/AT11904U1.pdf"
+   ]
+  },
+  {
+   "id": "C03",
+   "claim": "The open-source library Port-Net/BlumServoDrive (v0.3.0; ESP32 with nRF24L01+ through RF24; last commit 2025-01-10) pairs with a drive through the drive's own SYNC procedure as a virtual synchronised drive, reports drive movements as OPEN/CLOSE events and sends explicit (not toggle) open or close commands. It takes one of at most three sync slots, its open/close parameter encoding contradicts itself between the send and receive paths, and the drive generation it was tested on is not documented.",
+   "why_it_matters": "It is the only known working route that both observes drive movements and sends a close that is safe to repeat, without modifying Blum hardware. If it fails on the owner's drive, the design falls back to a genuine switch as actuator (C10, C11). On the classic generation, sync cannot be active together with collision avoidance, and a close sent to a synchronised group moves every front in it.",
+   "current_confidence": "medium – the code was read in full, but there are no independent test reports, only 15 small commits, known bugs (SPI access from two tasks without a lock, any sender auto-added as a peer) and a licence conflict (LICENSE file GPL-2.0, library.json LGPL-3.0)",
+   "sources": [
+    "https://github.com/Port-Net/BlumServoDrive",
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/src/blum_servo_drive.cpp",
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/src/blum_servo_drive.h",
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/library.json",
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/examples/basic/basic_controller.cpp",
+    "https://github.com/Port-Net/BlumServoDrive/commits/main",
+    "https://raw.githubusercontent.com/Port-Net/BlumServoDrive/HEAD/LICENSE",
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf",
+    "https://eggersmannusa.com/wp-content/uploads/2017/12/Blum_ServoDrive_EN.pdf"
+   ]
+  },
+  {
+   "id": "C04",
+   "claim": "Once the ESP32 is paired as a sync partner, the drive sends it a move notification for every electric movement, including openings triggered by a front press, so OPEN can be detected over the radio without a separate flap sensor; movements made by hand are expected not to be reported.",
+   "why_it_matters": "Decides whether the reed sensor is the primary OPEN detector or only a cross-check, and whether front-press openings can be timed without extra hardware.",
+   "current_confidence": "low – inferred from Blum's statement that synchronised drives 'move simultaneously', from the library's receive handler, and from patents describing drives exchanging position status; never tested",
+   "sources": [
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/src/blum_servo_drive.cpp",
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf",
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sen_$aof_$v7.pdf",
+    "https://patentimages.storage.googleapis.com/a3/d4/8e/5db82b4f715ae0/DE202009010203U1.pdf",
+    "https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/12499751"
+   ]
+  },
+  {
+   "id": "C05",
+   "claim": "There are three current drive families: 21FA00x for HF/HS/HL, 23KA00x for HK top, and 23.A00x for HF/HS/HL top (since 2023 in the EU, 2024 in the US); legacy units are 21KA/21LA/21SA. They use different radio modules (FCC W95-21A00L33, W95-21FA00Y, W95-23A00L83, W95-23A001) and different pairing buttons (<SWITCH>/<SYNC>/<COLL>/<Reset Wireless> on classic drives versus <Connect/Link>/<OK>/<Play>/collision/reset on top drives). The published protocol work has not been confirmed on the top generation or on drives with the electronics update shipped from September 2025.",
+   "why_it_matters": "All protocol evidence comes from unidentified hardware dating from 2023–2025. The owner's drive generation decides whether the nRF24 route is likely to work and which pairing steps apply, so photos of the label and the button panel are needed before buying radio hardware.",
+   "current_confidence": "high for the families, FCC IDs and button layouts (Blum DoCs, manuals and marking pages); low for whether the protocol applies to top-generation or post-2025 drives",
+   "sources": [
+    "https://www.blum.com/de/de/produkte/bewegungstechnologien/servo-drive/servo-drive-aventos/programm/",
+    "https://www.blum.com/file/kla0031-ba-139_ba_dok_bau?country=de&language=de",
+    "https://webshop.schachermayer.com/cdn/medias/docus/175/webd_Blum_Servodrive_Montageanleitung.pdf",
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf",
+    "https://www.blum.com/file/cme90761_ma_dok_bau?country=us&language=en",
+    "https://d2.blum.com/services/BEC003/aventoshktoptech_ep_dok_bus_$sen-us_$aof_$v5.pdf",
+    "https://www.blum.com/file/cme106574_fl_dok_bus?country=us&language=en",
+    "https://www.blum.com/file/me8343120_zf_dok_bau?country=de&language=de",
+    "https://www.blum.com/file/me199043_zf_dok_bau?country=de&language=de",
+    "https://www.blum.com/file/cme185362_zf_dok_bau?country=de&language=de",
+    "https://fccid.io/W95-23A00L83",
+    "https://electric.garden/julius-blum-gmbh-w95/servo-drive-for-aventos-hf-hs-hl-top-23a001",
+    "https://www.blum.com/su/en/company/press/press-releases-detail_94208.html"
+   ]
+  },
+  {
+   "id": "C06",
+   "claim": "The radio link is compatible with Nordic Enhanced ShockBurst (nRF24L01+ style): GFSK at 1 Mbps on fixed channels (2404 and 2410 MHz used by the library for operation and sync pairing; 2452 MHz listed in an FCC record), 5-byte addresses derived from 3-byte device IDs, dynamic payload length, auto-acknowledge with ACK payloads, and 16-bit CRC. The RF chip is most likely an nRF24-family part, but no photo confirms it.",
+   "why_it_matters": "Fixes the radio parameters (1 Mbps, ESB, dynamic payloads, ACK payloads, CRC-16, the channel set) and rules out sub-GHz modules, BLE and 802.15.4 stacks.",
+   "current_confidence": "medium – two independent protocol analyses agree, Blum's 2020 patents name Enhanced ShockBurst and a 2008 Blum block diagram labels the radio 'nRF', but the FCC test reports and internal photos could not be opened and no chip marking is legible",
+   "sources": [
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/src/blum_servo_drive.cpp",
+    "https://www.bluhm-de.com/content/os-tools/en/projects/home-information-system/blum-servodrive-wireless-protocol-deciphered.html",
+    "https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/12698670",
+    "https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/12499751",
+    "https://patentimages.storage.googleapis.com/f3/1e/63/fd2f1289140f01/US20230165384A1.pdf",
+    "https://patentimages.storage.googleapis.com/a3/d4/8e/5db82b4f715ae0/DE202009010203U1.pdf",
+    "https://device.report/julius-blum/23p502l00",
+    "https://www.sparkfun.com/datasheets/Components/SMD/nRF24L01Pluss_Preliminary_Product_Specification_v1_0.pdf",
+    "https://raw.githubusercontent.com/nRF24/RF24/master/RF24.cpp",
+    "https://daumemo.com/wp-content/uploads/2026/02/Blum-HK-Top-Aventos-disassembled-servo-drive-trigger-button.jpg"
+   ]
+  },
+  {
+   "id": "C07",
+   "claim": "The ESP32's built-in radio cannot exchange these ESB frames, so the device needs either an external genuine Nordic nRF24L01+ on SPI or an nRF52840 running Nordic ESB in nRF24 legacy mode; Si24R1, BK242x/RFM7x, SE8R01 and XN297 clones reportedly cannot do the required dynamic-payload/ACK-payload exchange.",
+   "why_it_matters": "Sets the parts list. Option 1: an ESP32 board (e.g. XIAO ESP32-C6, which matches the library's example pins) plus a plain PCB-antenna nRF24L01+ with 10 µF and 100 nF capacitors at its pins. Option 2: a single-chip XIAO nRF52840, which has no Wi-Fi and needs the library ported. Buy modules from two sources and test them before fixing the enclosure design.",
+   "current_confidence": "medium – the ESP32 limitation is an inference (no Espressif statement found); the clone incompatibility comes from community reports; Nordic documents ESB backward compatibility with nRF24",
+   "sources": [
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/examples/basic/basic_controller.cpp",
+    "https://nrfconnectdocs.nordicsemi.com/ncs/latest/nrf/protocols/esb/index.html",
+    "https://github.com/TMRh20/nrf_to_nrf",
+    "https://github.com/Kegetys/simagic-arduino-poc",
+    "https://forum.mysensors.org/topic/1153/we-are-mostly-using-fake-nrf24l01-s-but-worse-fakes-are-emerging",
+    "https://raw.githubusercontent.com/jnk0le/RFM7x-lib/master/README.md",
+    "https://raw.githubusercontent.com/nRF24/RF24/master/COMMON_ISSUES.md",
+    "https://wiki.seeedstudio.com/xiao_esp32c6_getting_started/",
+    "https://wiki.seeedstudio.com/XIAO_BLE/"
+   ]
+  },
+  {
+   "id": "C08",
+   "claim": "On the generation(s) analysed by bluhm-de and Port-Net, devices are identified by fixed 3-byte IDs stored during pairing, the receiver does not check the per-frame sequence counter, and frames contain no authentication field or rolling code, so a peer paired through the drive's documented SYNC or SWITCH procedure is accepted. Blum's 2020 patent family describes optional encryption and time windows, which newer hardware may implement.",
+   "why_it_matters": "If this holds on the owner's drive, a firmware-only transmitter paired through SYNC is feasible and no counter needs to be stored. If the drive implements the encryption or time-window variants, the RF route is closed and only the genuine-switch actuator remains.",
+   "current_confidence": "medium for the generation(s) analysed (two sources agree); unknown for top-generation and post-September-2025 drives",
+   "sources": [
+    "https://www.bluhm-de.com/content/os-tools/en/projects/home-information-system/blum-servodrive-wireless-protocol-deciphered.html",
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/src/blum_servo_drive.cpp",
+    "https://patentimages.storage.googleapis.com/a3/d4/8e/5db82b4f715ae0/DE202009010203U1.pdf",
+    "https://patentimages.storage.googleapis.com/99/2c/15/57a397ea95d027/US20230236580A1.pdf",
+    "https://patentimages.storage.googleapis.com/f3/1e/63/fd2f1289140f01/US20230165384A1.pdf",
+    "https://www.blum.com/su/en/company/press/press-releases-detail_94208.html"
+   ]
+  },
+  {
+   "id": "C09",
+   "claim": "All SERVO-DRIVE radios (switches 21P5020/23P5020, drives 21FA/23KA/23.A, the flex receiver) are specified for 2.404–2.452 GHz, at most +4 dBm (2.5 mW), about 10 m typical range and bidirectional coded telegrams. Blum declares them under EN 300 440 (short-range devices) rather than EN 300 328 or any sub-GHz standard, while the 2009 first-generation FCC filings list 2403–2477 MHz.",
+   "why_it_matters": "Confirms a narrowband 2.4 GHz link on a few fixed channels with no frequency hopping, so one retunable nRF24-class radio is enough. The 10 m typical range lets the device sit anywhere in or next to the cabinet. First-generation parts may use a different channel plan.",
+   "current_confidence": "high – Blum technical data and five EU DoCs; FCC frequency ranges medium (search snippets only)",
+   "sources": [
+    "https://www.blum.com/file/kla0031-ba-139_ba_dok_bau?country=de&language=de",
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sde_$aof_$v7.pdf",
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sen_$aof_$v7.pdf",
+    "https://webshop.schachermayer.com/cdn/medias/docus/175/webd_Blum_Servodrive_Montageanleitung.pdf",
+    "https://www.blum.com/file/cme213761_zf_dok_bau?country=de&language=de",
+    "https://www.blum.com/file/me8343120_zf_dok_bau?country=de&language=de",
+    "https://www.blum.com/file/me199043_zf_dok_bau?country=de&language=de",
+    "https://www.blum.com/file/cme185362_zf_dok_bau?country=de&language=de",
+    "https://www.ballerina.de/media/config/media/content/downloads/montageanleitungen/montage_blum38.pdf",
+    "https://fcc.report/FCC-ID/W95-21P5020",
+    "https://fccid.io/W95-23A00L83",
+    "https://electric.garden/julius-blum-gmbh-w95/servo-drive-for-aventos-hf-hs-hl-top-23a001"
+   ]
+  },
+  {
+   "id": "C10",
+   "claim": "A drive accepts additional genuine 23P5020 switches without removing existing ones: up to six per classic-generation drive, each switch bound to one drive, with no documented limit for the top generation. Pairing is <SWITCH> then the switch (classic) or <Connect>, the switch, then <OK> (top). <Reset Wireless> or reset erases all paired switches plus the sync and collision settings.",
+   "why_it_matters": "A dedicated second switch becomes a fallback actuator that does not depend on the protocol and leaves the owner's switch untouched (about €30–55 / US$48–54). A Reset Wireless during experiments wipes every pairing and the sync/collision configuration.",
+   "current_confidence": "high for the classic generation (Blum MA-502/3 and US brochures); medium for the top generation (pictograms only, limit undocumented)",
+   "sources": [
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf",
+    "https://cdnimages.opentip.com/Docs/HDL/ServoDriveAventos_hl.pdf",
+    "https://www.woodworkerexpress.com/skin/common_files/files/specs/blum/blum-servo-drive-brochure.pdf",
+    "https://d2.blum.com/services/BEC003/aventoshktoptech_ep_dok_bus_$sen-us_$aof_$v5.pdf",
+    "https://www.blum.com/file/cme90761_ma_dok_bau?country=de&language=de",
+    "https://www.toolz4you.com/blum-servo-drive-schalter-fur-aventos-symmetrisch-tiefgrau-23p5020-628101.html",
+    "https://www.lignoshop.de/servo-drive-schalter-symmetrisch-blum23p5020.html",
+    "https://www.lignoshop.de/23p5020-servo-drive-schalter-weiss.html",
+    "https://www.c4forums.com/forums/topic/45942-blum-servo-drive/",
+    "https://patentimages.storage.googleapis.com/a3/d4/8e/5db82b4f715ae0/DE202009010203U1.pdf"
+   ]
+  },
+  {
+   "id": "C11",
+   "claim": "The 23P5020 runs on a 3.0 V CR2032 (rated 10 mA), and its PCB 23P502L00.01 has test pads labelled +3 V, GND, 'Button to MCU' and 'Button to Vcc (maybe 1.8 V)'. One documented build powered it at 3.34 V and triggered the drive by bridging the button pads with a potential-free contact for 0.8 s; Blum's lean protection ignores presses held too long, so the actuator must be an isolated momentary contact with an adjustable pulse length.",
+   "why_it_matters": "Defines the fallback actuator circuit: power the donor switch from 3.3 V (never together with the coin cell) and bridge the pads through a PhotoMOS such as the AQY212EH rather than a GPIO. Make the pulse length adjustable, starting at 0.8 s, and keep the output off while the ESP32 boots.",
+   "current_confidence": "medium – a single documented teardown, whose author marks the 1.8 V rail as 'maybe'; Blum forbids opening the switch (warranty)",
+   "sources": [
+    "https://daumemo.com/how-do-you-connect-a-blum-servo-drive-to-z-wave-home-assistant-system/",
+    "https://daumemo.com/wp-content/uploads/2026/02/DSC00074_Blum_view1_schematic0_wm.jpg",
+    "https://www.blum.com/file/kla0031-ba-139_ba_dok_bau?country=de&language=de",
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sen_$aof_$v7.pdf",
+    "https://eggersmannusa.com/wp-content/uploads/2017/12/Blum_ServoDrive_EN.pdf",
+    "https://shelly-forum.com/thread/27978-blum-servodrive-mit-shelly-uni-steuern/",
+    "https://www.farnell.com/datasheets/1795425.pdf"
+   ]
+  },
+  {
+   "id": "C12",
+   "claim": "No SERVO-DRIVE for AVENTOS drive has a documented wired trigger or control input. Its only cable is the 2-core 24 V DC SELV distribution cable, which carries power only and is fed by a Blum supply (Z10NE040 72 W/3 A; Z10NA40x 24 W/1 A for one drive; Z10NE030 24 W/1 A; Z10NA300 12 W/0.5 A uno). Blum forbids connecting any other device to that supply, so the ESP32 needs its own USB supply, and a design that listens continuously (about 13 mA nRF24 RX) cannot run on a battery.",
+   "why_it_matters": "Rules out a wired trigger at the drive, so actuation must go through the radio. It also sets the supply: a separate 5 V USB adapter by default. Tapping the 24 V line would break Blum's rule, may void the warranty, and needs a buck converter rated for at least 36 V (not a Mini360/MP2307). Battery power is realistic only for a design that sleeps and wakes to act.",
+   "current_confidence": "high – Blum manuals and catalogue list no wired input; the one web article claiming a dry-contact input is unsourced",
+   "sources": [
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sen_$aof_$v7.pdf",
+    "https://www.blum.com/file/kla0031-ba-139_ba_dok_bau?country=de&language=de",
+    "https://www.furlat.lv/wp-content/uploads/2014/10/Aventos-Servo-Drive-range-technical.pdf",
+    "https://www.so-tech.de/Schubkasten----Zargensysteme/Schubladensysteme/Servo-Drive/Blum-Servo-Drive-Verteilerkabel-Ablaengbar.html",
+    "https://www.blum.com/file/cme91302_zf_dok_bau?country=de&language=de",
+    "https://www.lignoshop.de/out/media/aventos-top-info.pdf",
+    "https://www.blum.com/file/cme108516_zf_dok_bau?country=de&language=de",
+    "https://www.manualslib.com/manual/3612384/Blum-Servo-Drive.html",
+    "https://knx-user-forum.de/forum/%C3%B6ffentlicher-bereich/geb%C3%A4udetechnik-ohne-knx-eib/2053886-blum-servo-drive-servo-drive-schalter-23p5020-an-knx-anbinden",
+    "https://industrialmonitordirect.com/blogs/knowledgebase/blum-servo-drive-knock-to-open-integration-solenoid-trigger",
+    "https://goughlui.com/2018/07/04/tested-mini-360-mp2307-based-3a-buck-converter-module/",
+    "https://www.sparkfun.com/datasheets/Components/SMD/nRF24L01Pluss_Preliminary_Product_Specification_v1_0.pdf"
+   ]
+  },
+  {
+   "id": "C13",
+   "claim": "The drive's built-in collision detection stops opening and closing when the front meets a body part or object, including just after a close command. The flap may be moved by hand at any time. A mains interruption during motion leaves the flap where it stopped, and the next switch press re-activates the drive. The duty cycle is S3 5 % (max. 10 movements per 10 min), and the drive's EU DoC cites EN ISO 14118 (prevention of unexpected start-up). What a switch press does during motion is not documented.",
+   "why_it_matters": "Blum's stop-on-contact is the last line of defence, and an unattended close counts as an unexpected start-up. The firmware therefore needs: a warning before closing, an optional presence veto, a cancel control, at most one retry, a rate limit below 10 movements per 10 min, a fresh countdown after power-up, and no commands during reference runs. Test what a press during motion does before ever allowing a second command.",
+   "current_confidence": "high – Blum BA-139/7, MA-502/3, brochures and the EU DoC; behaviour of a press during motion unknown",
+   "sources": [
+    "https://www.blum.com/file/kla0031-ba-139_ba_dok_bau?country=de&language=de",
+    "https://d2.blum.com/services/BEC003/kla0031-ba-139_ba_dok_bau_$sen_$aof_$v7.pdf",
+    "https://cdnimages.opentip.com/Docs/HDL/ServoDriveAventos_hl.pdf",
+    "https://www.furlat.lv/wp-content/uploads/2014/10/Aventos-Servo-Drive-range-technical.pdf",
+    "https://www.blum.com/ch/de/produkte/bewegungstechnologien/servo-drive/servo-drive-uno-aventos/programm/",
+    "https://www.blum.com/file/kla0015-fo-030_fo_dok_bau?country=eu&language=en",
+    "https://3409204.app.netsuite.com/core/media/media.nl?id=39128&c=3409204&h=I7hFZKVLl7M8rCEdbdyTx-rTtlr8LS-2ySoJUI6AM-XP9YhH&_xt=.pdf",
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf",
+    "https://www.blum.com/file/me8343120_zf_dok_bau?country=de&language=de",
+    "https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/8692497"
+   ]
+  },
+  {
+   "id": "C14",
+   "claim": "No Blum product, setting, app or API provides automatic or timed closing for SERVO-DRIVE for AVENTOS. The only timed behaviour in the range is the 2.5/4/8 s hold-open time of SERVO-DRIVE flex, and 'SERVO-DRIVE smart' is an unreleased concept, so the 5-minute close must run entirely on the ESP32.",
+   "why_it_matters": "The whole timing function is new and runs on the ESP32; no supported integration can replace the device.",
+   "current_confidence": "high – no timer, app or API in any Blum manual, brochure or download page; the flex hold-open time applies to appliance doors only",
+   "sources": [
+    "https://www.blum.com/file/kla0031-ba-139_ba_dok_bau?country=de&language=de",
+    "https://webshop.schachermayer.com/cdn/medias/docus/175/webd_Blum_Servodrive_Montageanleitung.pdf",
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf",
+    "https://www.blum.com/file/cme90761_ma_dok_bau?country=us&language=en",
+    "https://www.blum.com/eu/en/products/motion-technologies/servo-drive/servo-drive-aventos/downloads-videos/",
+    "https://www.blum.com/us/en/products/motion-technologies/servo-drive/overview/",
+    "https://www.chancenland.at/en/news/servo-drive-smart-by-julius-blum/"
+   ]
+  }
+ ],
+ "open_questions": [
+  "Does a drive send move notifications to its sync partners for openings by front press, by switch and by hand, and at power-up? Are the notifications repeated or batched?",
+  "What do the open/close parameter values in the library's move frames (0x01 vs 0x10) really mean? Its send and receive paths disagree; calibrate on the owner's unit.",
+  "Do top-generation drives (23.A00x, 23KA00x with Connect/OK/Play) use the same sync pairing and frame layout as the classic 21FA drives?",
+  "Did the September 2025 electronics update add encryption, counter checks or time windows, as described in the EP4162xxx/US2023 patent family?",
+  "Which RF IC is in the 23P5020 and the drive modules (nRF24L01+ with an MCU, nRF24LE1, or an nRF5x running ESB)? Do first-generation parts (PCB 21P502L00, module 21.A00L33, FCC range 2403–2477 MHz) use the same channels and frames?",
+  "Which channel(s) does the original switch use for button frames and for pairing? Is 2452 MHz (nRF channel 52) the third channel?",
+  "What does a switch press or sync command do while the flap is moving (stop, reverse, ignore)? Does the first press after a power cut move the flap, or only re-activate the drive?",
+  "What press duration does the drive accept (lean protection): the minimum to register and the maximum before it is ignored?",
+  "How many switches can a top-generation drive hold? Does an old 21P5020 pair with top drives?",
+  "How does the drive behave when its virtual sync partner is unpowered, out of range or slow to acknowledge (delay, error LED, refusal to move)?",
+  "Is a close command sent to an already closed drive through the sync path harmless? Does the drive check the partner's device-type byte or ID prefix?",
+  "What voltage and topology do the 23P5020 button pads have (high side to a ~1.8 V rail or to 3 V)? Does the Connect LED indicate a drive acknowledgement?",
+  "What does the drive do when the S3 duty cycle (10 movements per 10 min) is exceeded?",
+  "Does the drive's standby current differ between open and closed, which would allow state sensing on the 24 V line?",
+  "How much does the ESP32's own 2.4 GHz Wi-Fi/BLE transmission degrade nRF24 reception on 2404/2410 MHz inside a small enclosure?",
+  "Can an nRF52840 (NCS ESB or nrf_to_nrf with its single receive buffer) reproduce the library's ACK-payload and multi-pipe behaviour?",
+  "Is the Port-Net code GPL-2.0-or-later, GPL-2.0-only or LGPL-3.0? This decides the licence of published firmware.",
+  "Does the earthquake sensor Z10ZE000 cut drive power inline, or use a control line, which would hint at an undocumented wired interface?"
+ ],
+ "questions_for_user": [
+  "Please photograph the white label on the drive unit, clipped to the left lift mechanism: article number (21FA…, 21KA/LA/SA…, 23KA… or 23.A…), BAU serial and FCC ID. Which AVENTOS type is it (HF, HS, HL or HK; top or not)?",
+  "Which buttons does the drive have: <SWITCH>/<SYNC>/<COLL>/<Reset Motion>/<Reset Wireless>, or <Connect/Link>/<OK>/<Play 'test 2x'> with collision/reset? A photo would help.",
+  "What part number is on the back of your radio switch (21P5020 or 23P5020), and which FCC ID? Does it have one LED (battery) or two (battery and Connect)? How many switches are paired, and if you open one, what does the PCB marking say?",
+  "When was the cabinet bought or installed (before or after September 2025), and in which country or region (EU, UK, US/CA)?",
+  "How do you normally open the flap: by pressing the front, with the switch, or by hand? Should the 5-minute timer start for all of them, and should closing by hand cancel it?",
+  "Is this a single drive, or is it synchronised or collision-linked with other drives? How many?",
+  "Which Blum power supply is installed (label Z10NE0…/Z10NA…)? Is there a free mains socket or USB port near the cabinet for a separate ESP32 supply?",
+  "Which actuation route do you prefer? (a) Pair the ESP32 once as a sync partner using the drive's SYNC/Link button; this uses a sync slot, and a later Reset Wireless also unpairs your switches. (b) Buy a second 23P5020 and wire it in; opening it voids Blum's warranty on that part. (c) A mechanical presser.",
+  "Quick tests on your unit: (1) with the flap closed, press the switch; does it open? (2) Press the switch during opening and during closing; does the flap stop, reverse, or ignore it? (3) Hold the switch 2–3 s with the flap open; is the press ignored? (4) Open the flap by hand, then press the switch; does it close?",
+  "May a reed sensor and magnet be fitted on the carcass and flap? What are the materials near the bottom edge of the flap? Is there already an interior-light door contact?",
+  "Do you want Home Assistant / Wi-Fi integration, or a standalone device? If Wi-Fi: is 5 GHz available, and which 2.4 GHz channel does your router use?",
+  "Are children or pets around, or do items stick out past the cabinet edge? Do you want a warning beep/light before closing and a presence sensor veto? If closing is interrupted, should the device retry once, notify you, or give up?",
+  "Which hardware and tools do you already have (nRF24L01+ modules, nRF52840 dongle, SDR, logic analyser, XIAO or other ESP32 boards, Arduino IDE or PlatformIO, 3D printer and filament, soldering iron for heat-set inserts)?",
+  "Where in the cabinet could the enclosure go (free space, surface material), and may you drive two small screws there?"
+ ],
+ "minor_facts": [
+  "Suffixes: 23.A000 / 23KA000 = set (drive plus distribution cable, node and end protectors); 23.A001 / 23KA001 = drive in multipack; 21FA000.2x / 001.2x / 005.2x = packaging and customer variants; drive serials have the form BAUxxxxxxx; drive colour TGR (RAL 7037).",
+  "Drive and switch part numbers are the same worldwide. Only power supplies and cords are market-coded (Z10NE04xy, Z10NA40xy, where x is the market and y the language). US cover sets carry a '.NA' suffix, and the US sold 21P5020 as a 2-pack.",
+  "23P5020 replaces 21P5020 and works with all SERVO-DRIVE radio modules, according to dealer text copied from Blum. It comes in SW, HGR and TGR, is 42 mm long, symmetrical, and presses into a Ø35 × 11 mm bore whose centre is 12 mm from the front edge and 30–90 mm above the bottom panel (template M31.2000). A surface-mount adapter 23P5216 exists, and two switches ship in each cover-cap set.",
+  "Switch battery LED: flashes red when the battery is low, lights red if the cell is reversed (MA-502/3 says it flashes). The switch's '1 W standby' figure in BA-139/7 is evidently a documentation error.",
+  "Drive standby power: 0.22 W (21FA00x), 0.15 W (23.A001), 0.40 W (23KA001); rated current 2.0 A at 24 V DC; protection class III.",
+  "Z10NG120 is a wall holder, not a power supply. Accessories: distribution cable Z10K800AE (8 m), connecting node Z10V100E.01, cable holder Z10K0009. Only one supply per distribution cable; plug-in supply cable at most 2 m; old US Z10NE020G was quoted for both 8 and 16 drives.",
+  "SERVO-DRIVE uno uses the same drive and switch on a single-drive plug-in supply. SERVO-DRIVE flex uses the 23P5020 through receiver Z10C5007 (same module W95-21A00L33) or, from 2025, a built-in receiver. The drawer SERVO-DRIVE has no radio switch, and COMBOX is for drawers only.",
+  "There is no SERVO-DRIVE for AVENTOS HK-S, HK-XS or HKi. '21HA000' appears in no Blum document; what 21LA/21SA were exactly is unresolved.",
+  "Blum patents: the 2008 block diagram labels the radio 'nRF' and the drive MCU 'NEC 500 Series'. In the 2009 design the radio sits on a separate board linked over SPI. The drive learns end positions in a reference run, measures position with a potentiometer, and detects collisions from deviations against the learned speed profile. Typical travel: HF about 120°, HS about 130°, HL about 140°.",
+  "The Port-Net example pins match a Seeed XIAO ESP32-C6 (CSN GPIO0, CE GPIO1, BOOT GPIO9, LED GPIO15). On a XIAO ESP32-C3, MISO is GPIO9 (the BOOT strapping pin), so CSN needs a pull-up and the pins must be remapped.",
+  "Toolchain as of Nov 2026: RF24 v1.6.2 (IRQ masked by default since 1.6.0); arduino-esp32 3.3.12; PlatformIO platform-espressif32 v8.0.0 supports it. The library needs core 3.x (C++20 erase_if).",
+  "Prices: XIAO ESP32-C3 $4.90 (about €7.90), C6 $5.20 (€8.50), nRF52840 $9.90 (€11.90); nRF52840 Dongle €9.78 excl. VAT; nRF24L01 3-pack about €7.99; 23P5020 about €29–38 in DE/AT, about $48–54 in the US.",
+  "Enclosure: PLA/PETG walls of about 2 mm lose under 0.01 dB at 2.4 GHz; avoid conductive or filled filaments; keep at least 15 mm antenna clearance (Espressif guidance). Use YAPP_Box (MIT) or BOSL2 (BSD-2); NopSCADlib is GPL-3.0. ruthex M2.5 insert hole 4.0 mm; FDM snap-fit clearance about 0.5 mm.",
+  "Transmit limits: EU ERC/REC 70-03 Annex 1 band i allows 10 mW e.i.r.p.; US 15.249 allows 50 mV/m at 3 m (about 0.75 mW). An nRF24 at RF24_PA_LOW (-12 dBm) is well within both; avoid PA+LNA modules at full power.",
+  "An RTL-SDR cannot tune 2.4 GHz. For bench checks on the owner's own system, the RF24 scanner example, a second nRF24, an nRF52840 dongle in ESB monitor mode, or a HackRF with URH are enough.",
+  "Wi-Fi channel 1 overlaps 2404/2410 MHz and channel 6 avoids them (inference); the XIAO ESP32-C5 can move its own Wi-Fi to 5 GHz.",
+  "ESPHome is feasible through an external component (loucks1/nrf24_espidf supports dynamic and ACK payloads; kuralabs/esphome-nrf24 uses fixed 32-byte frames and does not fit). ESPHome now defaults to esp-idf; set the api and wifi reboot_timeout to 0s for a local safety device.",
+  "Sensor notes: reed switches act at 13–25 mm, far more than the roughly 2 mm bumper gap, and should be wired so a broken wire reads as not closed. Tilt sensors fail on HL (parallel lift). A ToF sensor or an INA226 on the 24 V line could serve as an optional second signal.",
+  "PhotoMOS AQY212EH: LED current 5–10 mA, about 330 Ω from a 3.3 V GPIO, 1 µA off-state leakage. Use a boot-quiet pin with a pull-down and treat the output as a self-ending pulse, never a latching switch.",
+  "Garage-door practice (LiftMaster, Konnected): warn audibly and visually before an unattended close, make one retry, then stay open. IEC 60335-2-116:2025 covers motorised kitchen units; the EU Machinery Regulation 2023/1230 applies from 20 Jan 2027.",
+  "Licences: RF24 GPL-2.0; nrf_to_nrf GPL-3.0; Port-Net's LICENSE file is GPL-2.0 while library.json says LGPL-3.0; the owner's repo is MIT.",
+  "bluhm-de.com sells its channel and address data (donation of at least €15) and an Arduino sketch (€25); its free part matches Port-Net's frame layout. Other precedents: HA forum Sonoff SV (2019), Control4 forum (2024), Shelly Uni plan (2025), an unanswered KNX question (2025). pierreallier/Pilotage_ServoDrive_Blum drives the motor directly and is not relevant."
+ ]
+}

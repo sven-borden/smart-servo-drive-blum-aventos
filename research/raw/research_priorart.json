@@ -1,0 +1,224 @@
+{
+ "angle": "PRIOR ART: attempts to sniff, decode, replay, emulate or integrate the Blum SERVO-DRIVE radio switch or drive into home automation (EN/DE/FR/NL/IT web, GitHub, forums, manufacturer pages)",
+ "summary": "The scout called daumemo the only prior art. That is wrong. There are three kinds of precedent.\n\n(A) An open-source ESP32 + nRF24L01 Arduino library, github.com/Port-Net/BlumServoDrive (Christian Port, commits 2024-12-27 to 2025-01-10, v0.3.0, 0 stars, forks or issues). It emulates a SYNCHRONISED SERVO-DRIVE drive unit. It pairs through the drive's SYNC procedure: channel 10, address 0x534D554C42, which reads 'BLUMS' in the byte order RF24 writes it. Normal traffic is on channel 4 (2404 MHz) at 1 Mbps, with dynamic payloads and ack payloads. It sends explicit open or close position commands (type 0x26 after a 0x25 wake) and raises OPEN/CLOSE events when a synced drive reports movement.\n\n(B) A protocol write-up at bluhm-de.com, online since at least 2023-09-25 and unchanged since. It says the buttons hold nRF24L01+ radios using at least 3 channels (button, programming, sync). It gives the 9-byte switch command 'ba MM NN ff 01 20 XX YY dd' sent to receiver address 'dd NN MM ba 01', and says the sequence number 'does not seem to be validated'. It also gives the pairing exchange and the sync (0x27) and reset (0x42) frames. The channel numbers and addresses are withheld behind a 15 EUR donation, and an Arduino sketch is sold for 25 EUR.\n\n(C) Hard-wired relay hacks on the switch's push-button. daumemo (Z-Wave, 2026-02) is the only fully documented one. Others are a Home Assistant forum user (Sonoff SV, 2019), a Control4 forum user (2024-07), a Shelly Uni plan (2025-01, outcome unknown) and an unanswered KNX question (2025-09).\n\nThe two radio sources agree independently on the addressing (0xDD + 3-byte ID in reverse + pipe index), the header layout, identical 0x27/0x42 frames, and response = request|0x80. That is strong evidence of plain Enhanced ShockBurst with no encryption or rolling code.\n\nTwo Blum behaviours drive the design. The switch is a toggle, and the flap normally opens by pressing the front, which sends no switch packet. So sniffing the switch alone cannot reliably 'catch OPEN'. Every working precedent added a door-state sensor. Pairing the device as a sync partner (Port-Net's approach) might report front-press openings, but nobody has tested that.\n\nNothing official or off-the-shelf exists: no Blum integration (only the 'SERVO-DRIVE smart' gateway concept, no launch date), no ESPHome component, no rtl_433 decoder, no Flipper/URH/Home Assistant code, and no Reddit or Hackaday write-ups that could be found. Neither radio source says which drive or switch generation it was tested on, and Blum updated the SERVO-DRIVE electronics in September 2025. The shared web-search budget ran out near the end, so two planned queries (a YouTube hack search and a Flipper nRF24 add-on search) were not run.",
+ "findings": [
+  {
+   "claim": "An open-source ESP32 + nRF24L01 library exists that controls Blum SERVO-DRIVE units over radio. It is github.com/Port-Net/BlumServoDrive by Christian Port, an Arduino/PlatformIO library for espressif32 that depends on RF24 ^1.4.9. It emulates a drive unit acting as a synchronisation partner rather than a switch.",
+   "confidence": "high",
+   "evidence": "README: 'Blum ServoDrive Library / allow control of shelf equipped with blum servo drive.'\nlibrary.json: \"platforms\": [\"espressif32\"], \"dependencies\": [{\"owner\": \"nrf24\",\"name\": \"RF24\",\"version\": \"^1.4.9\"}], version 0.3.0.\nAPI in src/blum_servo_drive.h: 'enum event_t {SYNC_END, SYNC_IDENTIFY, OPEN, CLOSE, NEWPEER, UNLINK};', 'bool sendMove(uint idx, bool open);', 'bool startSync();', 'bool toggleState(uint idx);', 'BlumServoDrive(RF24* radio, uint32_t id = 0xBAABCE);'.\nPeers are stored in ESP32 Preferences (NVS).\nHistory: 15 commits, first 2024-12-27T14:50:43Z ('first commit'), last 2025-01-10T13:54:41Z ('changed pers to ptr'). Most commit messages are '.'. 0 stars, 0 forks, 0 issues. Not published in the PlatformIO registry (registry search for 'blum' and 'servodrive' found nothing).",
+   "sources": [
+    "https://github.com/Port-Net/BlumServoDrive",
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/src/blum_servo_drive.h",
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/library.json",
+    "https://api.registry.platformio.org/v3/search?query=blum"
+   ],
+   "design_impact": "This is the closest prior art to the target device: ESP32 + nRF24L01+ (an external SPI module, because the ESP32 radio cannot speak nRF24 Enhanced ShockBurst). It shifts the preferred architecture from 'sniff the switch' to 'pair as a virtual sync-partner drive'. That gives explicit open/close commands (idempotent, so no toggle-state guessing) plus move events. BOM: ESP32 (C3/C6/S3) + nRF24L01+ module. Treat the code as an unvalidated starting point: no README documentation, no tests, and the generation it was tested on is unknown."
+  },
+  {
+   "claim": "Port-Net's radio configuration: 1 Mbps, Enhanced ShockBurst auto-ack (left at the RF24 default), dynamic payload length, ack payloads, and 5-byte addresses built as 0xDD + reversed 24-bit ID + pipe index. Normal operation is on RF channel 4 (2404 MHz) with pipes 1 and 2. SYNC discovery is on channel 10 (2410 MHz) at address 0x534D554C42 ('BLUMS' in RF24 byte order). A commented-out 'switch_cfg_addr' is 0x544D554C42 ('BLUMT'). CRC is effectively still on: the code calls disableCRC(), but RF24 cannot disable CRC while auto-ack is active.",
+   "confidence": "medium",
+   "evidence": "src/blum_servo_drive.cpp begin(): '_radio->setDataRate(RF24_1MBPS); _radio->enableDynamicPayloads(); _radio->disableCRC(); _radio->enableAckPayload(); _radio->stopListening(); _radio->setChannel(4); ... _radio->openReadingPipe(1, addressFromID(_id, 1)); _radio->openReadingPipe(2, 0x02);'\naddressFromID(): '// 0xDD LL NN MM 0X  return 0xdd00000000LL | ((uint64_t)(id & 0xFF)<<24) | ((uint64_t)((id >> 8) & 0xFF)<<16) | ((uint64_t)((id >> 16) & 0xFF)<<8) | (uint64_t)idx;'\nHeader: 'uint64_t sync_cfg_addr = 0x534D554C42LL;  //uint64_t switch_cfg_addr = 0x544D554C42LL;'\nstartSync(): '_radio->setChannel(10); _radio->openReadingPipe(0, sync_cfg_addr);'\nRF24.h: '@warning CRC cannot be disabled if auto-ack/ESB is enabled.' and 'The frequency used by a channel is calculated as: 2400 MHz + <channel number>'.\nRF24.cpp init writes CONFIG with '_BV(EN_CRC) | _BV(CRCO)', and disableCRC() only clears EN_CRC, so 16-bit CRC is inferred.",
+   "sources": [
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/src/blum_servo_drive.cpp",
+    "https://raw.githubusercontent.com/nRF24/RF24/master/RF24.h",
+    "https://raw.githubusercontent.com/nRF24/RF24/master/RF24.cpp"
+   ],
+   "design_impact": "Gives the starting radio parameters for an nRF24L01+ on the ESP32: channel 4 at 1 Mbps with auto-ack, dynamic payloads and 16-bit CRC; discovery on channel 10 at 'BLUMS'. Channel 4 = 2404 MHz matches the lower edge of Blum's stated 2404-2452 MHz band (cross-link: FCC angle). The switch's own 'button' and 'programming' channels are not in this code; only a commented switch config address is. A pure switch-emulation design therefore still needs SDR capture or the bluhm-de data."
+  },
+  {
+   "claim": "Port-Net message catalogue. Drive-to-drive frames are 13 bytes: [sender ID 3 bytes][00][01][TYPE][00][SEQ][DD][peer ID 3 bytes][param]. Types: 0x25 wake/activation; 0x26 move to a position, with byte 12 = target state (0x10 or 0x01); 0x27 sync identify (green LED on partner); 0x03 sync ack (14 bytes, device-ID byte 0x94); 0x42 reset/unlink; 0xA5 application ack; 0x23 power-on. Channel-10 discovery uses 0x02, answered by 0x82. A move is sent as wake 0x25 then position 0x26 to the peer's pipe-2 address, with 5 retries at 500 ms. The library's open/close byte mapping is internally inconsistent.",
+   "confidence": "high",
+   "evidence": "Header constants:\n'const unsigned char ch4_activation_cmd[13] = {0x00, 0x00, 0x00, 0x00, 0x01, 0x25, 0x00, 0x91, 0xdd, 0x00, 0x00, 0x00, 0x00};'\n'const unsigned char ch4_position_cmd[13] = {0x00, 0x00, 0x00, 0x00, 0x01, 0x26, 0x00, 0x91, 0xdd, 0x00, 0x00, 0x00, 0x01}; // template set to close'\n'ch4_sync_ack[14] = {0x00, 0x00, 0x00, 0x02, 0x01, 0x03, ...}'\n'ch10_discover[12] = {..., 0x01, 0x02, 0x00, 0x21, 0xdd, 0x02, 0x01, 0xe7}', with discover_ack type 0x82.\nsendMovePos(): 'if(_requested_open) { sendPayload.data[12] = 0x10; }'\nReceive handler: 'if (success && (recPayload.data[5] == 0x25)) { // Sync Move Wakeup' ... 'else if (recPayload.data[5] == 0x26) { Serialprint(F(\"Sync Move requested from: \")); ... _event_callback(recPayload.data[12] == 01 ? OPEN : CLOSE, ...'\nInconsistency: when sending, 0x10 = open and the template 0x01 = close; on receive, 0x01 is mapped to OPEN.\nSYNC flow: 'if((ack_payload.len > 11) && (ack_payload.data[5] == 0x82)) { ... \" 82 in payload, adding peer\"'.\n#define SEND_INTERVAL 500, SYNC_WAIT_TIMEOUT 20000, _retries = 5.",
+   "sources": [
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/src/blum_servo_drive.h",
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/src/blum_servo_drive.cpp"
+   ],
+   "design_impact": "An explicit 'close' frame (0x26 with byte 12 = close) makes the 5-minute auto-close idempotent: sending close to an already-closed flap is harmless, unlike replaying a toggle. Receiving 0x25/0x26 from the real drive, if it notifies its sync partners on every move, could replace or supplement a reed sensor as the OPEN trigger. Firmware must reply with the 0xA5 app-level ack, as the library does. The 0x01/0x10 meaning must be verified on the bench before trusting it."
+  },
+  {
+   "claim": "bluhm-de.com, 'Blum ServoDrive Wireless Protocol Deciphered' (no byline/date; first Wayback capture 2023-09-25; text unchanged in captures through 2024-09). It says the buttons contain nRF24L01+ radios using at least three channels. The switch sends a 9-byte toggle frame to receiver address '01'; the sequence number appears unvalidated. Switch pairing is described with an ack payload carrying the receiver ID, plus the sync (0x27) and reset (0x42) frames. Channels and addresses are deliberately withheld.",
+   "confidence": "high",
+   "evidence": "Quotes:\n'Inside the buttons are nrf24L01+ transceivers. They are working on at least three different frequencies: 1. Button communication 2. Programming 3. Syncing'\n'The switch sends the following 9 byte sequence to the cupboard receiver address 01: ba MM NN ff 01 20 XX YY dd ... XX YY is a sequence number which changes for every submission. It does not seem to be validated.'\nPairing: 'Press the \"Switch\" button on the cupboard receiver for a few seconds. This triggers the reception mode on the configuration channel. Hold the switch for a few seconds. This sends ... ba MM NN ff 01 01 00 YY dd'; the receiver answers via 'Ack Payload. ba MM NN 01 01 81 00 YY dd'.\n'The cupboard receiver stores the switch's ID to identify a valid switch on future transmissions. The receiver's ID is reversed and stored in the switch to be used as transmission address 01 (i.e. ddNNMMba01)'\nSync: 'BA MM NN 00 01 27 00 YY DD BA UU VV 01'. Reset: 'BA MM NN 00 01 42 00 YY DD BA UU VV 01' ('resets al stored wireless information. It also removes the sync programming on the synced drives'). Both marked '[to be tested]'; the 'Sync' and 'Collision' sections are empty.\n'I will not make the addresses and channels public ... donate a coffee of at least 15 EUR'; 'virtual switch/cabinet sketch for Ardunio that you can buy from me for 25 EUR'.\nGoal: 'automatically close all cabinets when I turn off the light'.",
+   "sources": [
+    "https://www.bluhm-de.com/content/os-tools/en/projects/home-information-system/blum-servodrive-wireless-protocol-deciphered.html",
+    "http://web.archive.org/cdx/search/cdx?url=www.bluhm-de.com/content/os-tools/en/projects/home-information-system/blum-servodrive-wireless-protocol-deciphered.html"
+   ],
+   "design_impact": "This makes replay or emulation of the switch plausible: no crypto, a 2-byte counter reportedly not checked, and the drive only checks the stored switch ID. Switch command 0x20 is the only command, so it is a TOGGLE; a replayed or forged switch frame will toggle, not 'close'. Pairing a new virtual switch is possible in principle. Blum lets several switches pair to one drive (see the Blum-docs finding), so the original switch can be kept. The missing channel and address data can be bought from the author or recovered with an SDR or nRF24 promiscuous capture."
+  },
+  {
+   "claim": "The two radio sources corroborate each other in detail. They share the address rule (0xDD + 3-byte ID reversed + pipe byte), the 0xDD marker at byte 8, the same header position for 3-byte IDs, byte-identical layouts for the 0x27 sync and 0x42 reset frames, and the pattern response = request|0x80 (0x01 to 0x81, 0x02 to 0x82). Port-Net also documents types bluhm-de omits (0x25, 0x26, 0x03, 0xA5, 0x23, 0x02/0x82), so it is at least partly independent work.",
+   "confidence": "medium",
+   "evidence": "bluhm-de address 'ddNNMMba01' with ID 'ba MM NN' equals Port-Net addressFromID '0xDD LL NN MM 0X' (low ID byte first after DD, then index).\nbluhm-de sync 'BA MM NN 00 01 27 00 YY DD BA UU VV 01' vs Port-Net ch4_sync_button_cmd {ID3, 0x00, 0x01, 0x27, 0x00, seq, 0xdd, peer3, devID}.\nbluhm-de reset '... 00 01 42 00 YY DD BA UU VV 01' vs Port-Net ch4_reset {ID3, 0x00, 0x01, 0x42, 0x00, seq, 0xdd, 0x00,0x00,0x00, 0x01}.\nPairing request 0x01 / response 0x81 (bluhm-de) and discover 0x02 / response 0x82 (Port-Net).\nCaveat: Port-Net's captured power-on constant {.., 0x23, 0x00, 0xCE, 0xDD, 0xFC, 0x72, 0x42, 0x6C} carries 'FC 72 42' in the peer-ID slot, so IDs need not start with 0xBA as bluhm-de's notation implies.",
+   "sources": [
+    "https://www.bluhm-de.com/content/os-tools/en/projects/home-information-system/blum-servodrive-wireless-protocol-deciphered.html",
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/src/blum_servo_drive.h"
+   ],
+   "design_impact": "Raises confidence that a firmware-only nRF24 solution is feasible with no security barrier. Plan a short bench validation: capture the real switch and drive with an nRF24 or SDR sniffer before committing the enclosure design. Do not hard-code a 0xBA ID prefix."
+  },
+  {
+   "claim": "Both radio efforts very likely targeted SERVO-DRIVE for AVENTOS lift systems, not drawers. Both implement electric CLOSING, and only the AVENTOS variant closes electrically. The AVENTOS drive's button panel (<SWITCH>, <SYNC>, <COLL>, <Reset Wireless>) matches the buttons bluhm-de describes and the SYNC pairing Port-Net emulates.",
+   "confidence": "low",
+   "evidence": "bluhm-de: 'automatically close all cabinets when I turn off the light'.\nPort-Net: position command 'template set to close' and sendMove(idx, open=false).\nBlum AVENTOS installation instructions list '4 <SWITCH> button, 5 <SYNC> button, 6 <COLL> button, 7 <Reset Wireless> button, 8 Wireless LED' and the SYNC procedure 'Press the <SYNC> button for the first drive unit until the LED flashes green. Press the <SYNC> button for the second drive unit unit the LEDs of both synchronised drive units light up green.'\nBlum DE manual: 'Druck auf die Front – die Klappe öffnet automatisch; Druck auf den SERVO-DRIVE-Schalter – die Klappe schließt automatisch'.",
+   "sources": [
+    "https://www.bluhm-de.com/content/os-tools/en/projects/home-information-system/blum-servodrive-wireless-protocol-deciphered.html",
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/src/blum_servo_drive.cpp",
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf"
+   ],
+   "design_impact": "The prior art probably applies to the user's AVENTOS. Pairing flow to try: press <SYNC> on the real drive, then start the ESP32's startSync() (or the reverse; the library handles both orders). It is undone with <Reset Wireless>, which also deletes every paired switch, so the original switch must then be re-paired. The generation still needs confirming (see questions)."
+  },
+  {
+   "claim": "Blum's AVENTOS documentation sets limits and gives levers that shape any emulation. One switch pairs to exactly one drive, but a drive accepts several switches. Up to three drive units can be synchronised to move simultaneously. Collision avoidance can link up to six drives so that a linked drive refuses to open while another linked front is open. Reset Wireless deletes all switches. The switch hardware PCB 23P502L00 is shared by part numbers 23P5020 and 21P5020.",
+   "confidence": "high",
+   "evidence": "'A switch can only be assigned to one drive unit. 1 Press the <SWITCH> button until the LED flashes green. 2 Press the SERVO-DRIVE switch until the LED lights up green continuously. 3 Repeat procedure A 1-2 for additional SERVO-DRIVE switches in the cabinet.'\n'Up to three drive units can be synchronised allowing them to move simultaneously.'\n'drive units (max. 6) can be linked so that only one front can be opened at a time. A front is prevented from opening as long as a linked front remains open.'\n'F Reset Wireless Deactivates all functions: All active SERVO-DRIVE switches for the respective drive unit are deleted.'\nFCC SDoC: '23P5020, 21P5020 both with PCB 23P502L00 / 21P5020 with PCB 21P502L00'.\nEU declaration: 'radio equipment types 23.A00L83, 23P5020, 21P5020 and Z10C5007'.",
+   "sources": [
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf"
+   ],
+   "design_impact": "Options: (1) pair a second, spare switch, either hard-wired or virtual, while keeping the user's original switch; (2) join as a sync partner, which uses one of three sync slots, so check whether the flap is already synced. Do NOT experiment with COLL linking: a virtual partner that reports 'open' could block the real flap from opening. Plan for Reset Wireless wiping the switches during experiments."
+  },
+  {
+   "claim": "daumemo.com (published 2026-02-11T17:07Z, modified 2026-02-24; empty comments feed) is the only fully documented hard-wired integration. It uses a 23P5020 switch with the CR2032 removed, powered with 3.3 V from a Fibaro Smart Implant. Two PCB test pads ('Button to MCU' and 'Button to Vcc (maybe 1.8 V)') are bridged by the Implant's potential-free output for 0.8 s to emulate a press (toggle). An 8 mm reed/magnet sensor on Implant input 2 reports door state. A 24 V PSU is shared with the drive, and the enclosure is 3D-printed.",
+   "confidence": "high",
+   "evidence": "Article: 'Two of those pins (red and blue in the photo) are power and two other (green and orange) are used to short the trigger button, so it will open/close command to the Blum Servo-drive arm.'\nPinout photo DSC00074 labels: '+3 V', 'GND', 'Button to MCU', 'Button to Vcc (maybe 1.8 V)'.\n'the output of the brown wire is 3.34 V (measured with a multi-meter) ... it was successfully used connecting it to the BLUM wireless switch.'\n'Parameter 156 – set to 8 (0.8 seconds) ... This is done to imitate the push button press'\n'Parameter 21 – sets the Input 2 mode to toggle switch ... the magnetic switch'\nParts: 'wireless trigger switch 23P5020 and a bumper 993.0530'; 'Power supply (24V, 2A or 0.5A if original Blum PSU is also used)'; '0.22 mm2 for internal wiring and 0.5 mm2 for power'.\nPitfalls: 'if you try to insert the button extention after closing the cover – the soldered wires will block the trigger'; Z-Wave must be included non-secure; the analog input 'updated once every 30 seconds'; tested on 'HA core version: 2025.1.5 and 2026.1.0'.\nThe automation was not yet built ('one step left to do – create an automation').\nEnclosure: Thingiverse thing:7293224 and MakerWorld 2443203 (both 403 for this agent).\nPhoto observations: component-side label reads approx. '23P502L00.0x', housing '23P502-01.01', PCB date code '1422'; one QFN IC, a 2x3 pad header and a curved yellow wire antenna are visible (chip marking unreadable).",
+   "sources": [
+    "https://daumemo.com/how-do-you-connect-a-blum-servo-drive-to-z-wave-home-assistant-system/",
+    "https://daumemo.com/wp-content/uploads/2026/02/DSC00074_Blum_view1_schematic0_wm-1200x779.jpg",
+    "https://daumemo.com/wp-content/uploads/2026/02/Blum-HK-Top-Aventos-disassembled-servo-drive-trigger-button-1200x675.jpg",
+    "https://daumemo.com/how-do-you-connect-a-blum-servo-drive-to-z-wave-home-assistant-system/feed/",
+    "https://www.thingiverse.com/thing:7293224",
+    "https://makerworld.com/en/models/2443203-diy-blum-to-z-wave-adapter-enclosure"
+   ],
+   "design_impact": "Fallback or hybrid path that needs no radio protocol work. Use a spare paired 23P5020 powered from the ESP32's 3.3 V rail (no coin cell). Bridge the two button pads with an isolated switch (photoMOS, opto or relay). Do not drive the pad from a 3.3 V GPIO: the 'Button to Vcc' side may sit on a ~1.8 V rail. Pulse about 0.8-1 s. Add a reed or hall sensor for state. Sizing: the 24 V Blum supply can feed a buck converter. Enclosure: leave room for the solder wires and the grey button extension. This only tells the ESP32 about its OWN presses, so a state sensor is mandatory."
+  },
+  {
+   "claim": "Further 'wire a relay into the Blum switch' precedents exist, all without radio decoding and mostly without published outcomes.\n(a) Home Assistant forum, 2019: Sonoff SV with a relay soldered to the remote switch, plus a front-open sensor.\n(b) Control4 forum, 2024-07-23: a user wired a spare remote's button leads to a controller relay; batteries lasted about a year.\n(c) Shelly forum, Jan 2025: a Shelly Plus Uni with a 1 s auto-off pulse, 3.3 V from the Uni's sensor VCC, reed contacts or a Shelly BLU Door/Window for status; no result shown.\n(d) KNX-User-Forum, 2025-09-14: a question about wiring the 23P5020 to a KNX actuator, no replies.",
+   "confidence": "high",
+   "evidence": "(a) HA community 'Xiaomi Vacuum garage', user 3_14:\n2019-08-28: 'Garage door controller: Sonoff SV' / 'Garage door motor: Blum Servo-Drive for Aventos'.\n2019-08-30: 'I used a commercial solution and just used a relay to click an open/close button' and 'additional sensor to check if the front is opened'.\n2023-05-11: 'I have soldered a relay to the remote switch'.\n(b) C4 Forums (read via web.archive.org snapshot 20250710013331; live site 403):\nround42: 'Seems like it's radio between its remote buttons and the drive itself, so I though about getting something like a fingerbot'.\nRyanjackson: 'took one of the remotes for it and wired to it to the controller. Have to replace the batteries every year or so' and 'find teh leads that go to the button (think there are 4) then. connect two leads together till the motor moves. Then solder your wires to that to a relay on the controller.'\nround42: 'I'll order an additional button (they're super easy to pair).'\n(c) Shelly forum:\nAndreas Wobig 2025-01-04: 'Der Drive ist funkgesteuert (proprietäres Protokoll, da kommt man nicht ran)'; 'Die Taster lösen auf/zu mit je einem Tastendruck aus (leider ohne den Status auf oder zu bereitzustellen).'\napreick: 'im UNI einen Taster simulieren => Auto off (1s)'.\nDIYROLLY: 'Die ca. 3,3V DC bekommst Du aus dem VCC Sensor Anschluss (+) am UNI'; 'Den Statut auf/zu kann man über Reedkontakte an den Input nutzen'.\nostfriese: 'Shelly Blu Door/Window'.\nTwo further posts are members-only.\n(d) KNXPatrol: 'früher hatte man wohl einen Eingang am Servo-Drive ... Jetzt geht das wohl nur noch via Funk und man müsste den Impuls über den Funkschalter (23P5020) geben.'",
+   "sources": [
+    "https://community.home-assistant.io/t/xiaomi-vacuum-garage/134311",
+    "https://www.c4forums.com/forums/topic/45942-blum-servo-drive/",
+    "http://web.archive.org/web/20250710013331/https://www.c4forums.com/forums/topic/45942-blum-servo-drive/",
+    "https://shelly-forum.com/thread/27978-blum-servodrive-mit-shelly-uni-steuern/",
+    "https://knx-user-forum.de/forum/%C3%B6ffentlicher-bereich/geb%C3%A4udetechnik-ohne-knx-eib/2053886-blum-servo-drive-servo-drive-schalter-23p5020-an-knx-anbinden"
+   ],
+   "design_impact": "Confirms that bridging the button pads (4 leads on the tactile switch, 2 functional pairs) with a ~1 s pulse reliably triggers the drive. Everyone treats the switch as stateless and adds a reed or door sensor. Buying a dedicated second switch for the device is the common pattern and keeps the user's switch working. There is no evidence of a wired trigger input on current drives."
+  },
+  {
+   "claim": "The Blum switch is a stateless TOGGLE, and on AVENTOS the flap normally OPENS by pressing the front, or by hand, with no switch transmission at all. A switch sniffer therefore cannot know open vs close, and cannot see front-press or manual openings.",
+   "confidence": "high",
+   "evidence": "Blum EN instructions: 'The SERVO-DRIVE switch triggers the automatic opening and closing action of SERVO-DRIVE for AVENTOS. Press on the front – The lift system opens automatically. Press on the SERVO-DRIVE switch – The lift system closes automatically.' and 'The lift system can be opened or closed manually without restrictions'.\nBlum DE manual: 'Über den SERVO-DRIVE-Schalter wird das automatische Öffnen oder Schließen von SERVO-DRIVE für AVENTOS ausgelöst' and 'Durch die integrierte Kollisionserkennung wird der Öffnungs- bzw. Schließvorgang automatisch unterbrochen'.\nbluhm-de lists only one switch command (0x20).\nShelly forum: 'auf/zu mit je einem Tastendruck ... ohne den Status'.",
+   "sources": [
+    "https://www.ldlonline.co.uk/media/wysiwyg/others/media/kla0001-ma-502_ma_dok_bau__sen__aof__v3.pdf",
+    "https://webshop.schachermayer.com/cdn/medias/docus/175/webd_Blum_Servodrive_Montageanleitung.pdf",
+    "https://www.bluhm-de.com/content/os-tools/en/projects/home-information-system/blum-servodrive-wireless-protocol-deciphered.html",
+    "https://shelly-forum.com/thread/27978-blum-servodrive-mit-shelly-uni-steuern/"
+   ],
+   "design_impact": "Requirement (1), 'catch the OPEN command', must be redefined as 'detect that the flap became open'. Add a reed or hall sensor (or a ToF/IMU) as ground truth, OR rely on sync-partner position frames (untested for front-press). Never send a blind toggle at T+5 min: check the state first, or use the explicit 0x26 close frame. After a close attempt, verify closure, because collision detection can stop the closing, and decide on a retry policy. Sensor wiring and a magnet position must go into the enclosure plan."
+  },
+  {
+   "claim": "There is no official Blum smart-home integration. 'SERVO-DRIVE smart' is a concept study: a gateway coupled to the drives that connects to the cloud, in development since 2019, with no market-launch date. Separately, Blum's May 2025 press release announced a new SERVO-DRIVE version with upgraded electronics in all drive units, available from September 2025. It does not mention AVENTOS or protocol compatibility, and both radio prior-art sources predate it.",
+   "confidence": "medium",
+   "evidence": "chancenland.at (undated): 'This is made possible by a specially developed gateway that is coupled to the SERVO-DRIVE electric drives.' 'This gateway establishes a connection to the cloud' 'Blum's development team has been working since 2019 on the production-ready implementation of the concept study' 'A date for the market launch has not yet been set.'\nYouTube 'Blum SERVO-DRIVE smart' exists; only the title was retrievable.\nBlum press release (dateline 'Hoechst, Austria | May 2025'): 'with the electronics in all drive units being upgraded and the operability improved'; 'will be available from September'; for flex: 'The wireless receiver required for this is now permanently integrated into the drive unit'. The release names box/runner systems, uno, flex and wall cabinets, not AVENTOS.\nSearches for a Blum smart-home FAQ found none.",
+   "sources": [
+    "https://www.chancenland.at/en/news/servo-drive-smart-by-julius-blum/",
+    "https://www.youtube.com/watch?v=KqOjv2dnqWc",
+    "https://www.blum.com/su/en/company/press/press-releases-detail_94208.html"
+   ],
+   "design_impact": "A DIY device is the only route. Prior-art radio constants (2023-2025) may not match drive units built after September 2025. Confirm the user's generation before buying radio parts, and keep the hard-wired spare-switch path as a protocol-independent fallback (cross-link: generations angle)."
+  },
+  {
+   "claim": "A 2026 web article claiming the SERVO-DRIVE has a wired 'dry contact trigger input' (opto or SSR interface, 150-200 ms pulses, 24 V) is unsourced and contradicts Blum documentation and forum experience. Treat it as unreliable, probably generated content.",
+   "confidence": "low",
+   "evidence": "industrialmonitordirect.com (dated July 14, 2026, no author):\n'The SERVO-DRIVE expects a momentary dry contact closure.'\n'an opto-isolated open-drain output driving the SERVO-DRIVE trigger input is the cleanest interface'.\nIt gives no terminal or pinout, cites only 'field practice', and names no sources.\nContrast: KNX forum 'Jetzt geht das wohl nur noch via Funk'; Blum docs describe only the radio switch and front press.",
+   "sources": [
+    "https://industrialmonitordirect.com/blogs/knowledgebase/blum-servo-drive-knock-to-open-integration-solenoid-trigger",
+    "https://knx-user-forum.de/forum/%C3%B6ffentlicher-bereich/geb%C3%A4udetechnik-ohne-knx-eib/2053886-blum-servo-drive-servo-drive-schalter-23p5020-an-knx-anbinden"
+   ],
+   "design_impact": "Do not design around a wired trigger input on the drive unit. Do not open the drive unit looking for one unless the Blum-docs or FCC angles find real evidence."
+  },
+  {
+   "claim": "Generic tools exist to capture nRF24 traffic, though none have been applied to Blum publicly: gr-nrf24-sniffer (GNU Radio + HackRF One), roboremo NRF24-demodulator (RTL-SDR + down-converter), and the nRF24 'promiscuous' address workaround for capturing traffic on a known base address, including frames with bad CRC.",
+   "confidence": "low",
+   "evidence": "Search snippets only (pages not opened):\ngr-nrf24-sniffer: 'a tool for receiving and decoding traffic of nRF24L01(+) modules using GNU Radio and a custom decoder written in C', used with 'a HackRF One (or another compatible SDR)'.\nroboremo: 'Sniff NRF24L01 (and clones) packets and veiw bit-level structure using GNU Radio', with an RTL-SDR and a down-converter.\nyveaux 2014: the nRF24 'does not support promiscuous listening, but a workaround exists to capture traffic for a given base address, including the ones with invalid CRC's'.",
+   "sources": [
+    "https://github.com/kittennbfive/gr-nrf24-sniffer",
+    "https://github.com/roboremo/NRF24-demodulator",
+    "http://yveaux.blogspot.com/2014/07/nrf24l01-sniffer-part-1.html"
+   ],
+   "design_impact": "To recover the withheld switch channel and address, or to verify the Port-Net constants on the user's generation, use a HackRF-class SDR. A plain RTL-SDR cannot reach 2.4 GHz without a down-converter. Alternatively scan channels 4-52 with a second nRF24L01+ in promiscuous mode. Budget a verification step, not a reverse-engineering project."
+  },
+  {
+   "claim": "Port-Net's example firmware pins (CSN=GPIO0, CE=GPIO1, button GPIO9, active-low LED on GPIO15) match a Seeed XIAO ESP32-C6. This is inferred from pin mapping, not stated. The example drives the nRF24 over SPI at 1 MHz at RF24_PA_LOW. A long press over 2 s starts SYNC pairing, 1-2 s sends identify, and a short press toggles peer 0.",
+   "confidence": "low",
+   "evidence": "examples/basic/basic_controller.cpp: '#define CSN GPIO_NUM_0', '#define CE GPIO_NUM_1', '#define BUTTON GPIO_NUM_9', '#define LED_ON digitalWrite(15, LOW)', 'SPI.setFrequency(1000000);', 'blum.begin(RF24_PA_LOW);', 'if(button.previousDuration() > 2000) { LED_ON; blum.startSync(); } else if(button.previousDuration() > 1000) { blum.sendSyncIdentify(0); } else { blum.toggleState(0); }'.\nSearch snippet (RIOT OS board docs): XIAO ESP32C6 user LED on GPIO15 active-low, BOOT on GPIO9, D0=GPIO0, D1=GPIO1.",
+   "sources": [
+    "https://github.com/Port-Net/BlumServoDrive/blob/main/examples/basic/basic_controller.cpp",
+    "https://doc.riot-os.org/boards/seeedstudio-xiao-esp32c6"
+   ],
+   "design_impact": "A tiny XIAO-class ESP32-C6 (or C3) + nRF24L01+ module is a plausible, compact target for the OpenSCAD enclosure. Reuse the button-duration UX: long press = pair, medium = identify, short = test move. Low TX power was apparently enough at cabinet distances."
+  },
+  {
+   "claim": "Port-Net library maturity and licensing caveats. The README is two lines; the history is two weeks of '.' commits; the open/close byte mapping is inconsistent; any received non-ack frame auto-adds its sender as a peer; and the licence is contradictory (LICENSE file GPL-2.0, library.json and library.properties LGPL-3.0).",
+   "confidence": "high",
+   "evidence": "GitHub API: license 'gpl-2.0' (LICENSE file); library.json '\"license\": \"LGPL-3.0\"'.\nradioLoop BLUM_ACTIVE: 'uint32_t peerID = ...; addPeer(peerID);' for every received frame not 0xA5.\nAlso '(recPayload.len = 13)' uses assignment instead of comparison.\nThe first commit contained a pollState() using the 0x23 power-on frame, removed in later commits.",
+   "sources": [
+    "https://github.com/Port-Net/BlumServoDrive",
+    "https://github.com/Port-Net/BlumServoDrive/commits/main"
+   ],
+   "design_impact": "Use the library as protocol documentation and a reference, not a drop-in dependency. Re-implement or fork with fixes: peer whitelisting, correct state mapping, and a non-blocking FreeRTOS task. If the user publishes their firmware, settle the licence first; GPL-2.0 is the stricter reading."
+  }
+ ],
+ "negative_results": [
+  "ESPHome: WebSearch 'Blum Servo Drive ESPHome' (extended) and GitHub code search 'blum' in esphome/esphome found no ESPHome component, config or project.",
+  "Home Assistant core: GitHub code search 'aventos' in home-assistant/core returned nothing, so there is no native HA integration. HA community Discourse search.json returned HTTP 403 (not circumvented). WebFetch of community.home-assistant.io/search returned no content. Web search 'community.home-assistant.io Blum servo drive' found only the 2019 'Xiaomi Vacuum garage' thread.",
+  "rtl_433: GitHub code search 'blum' in merbanan/rtl_433 returned nothing, so there is no decoder. rtl_433/RTL-SDR also cannot natively receive 2.4 GHz; a down-converter is needed per the roboremo snippet.",
+  "Flipper Zero: WebSearch 'Blum servo-drive flipper zero' (extended) found nothing. GitHub code search 'blum' in flipperdevices/flipperzero-firmware and DarkFlippers/unleashed-firmware returned nothing. A planned query on the Flipper nRF24 add-on plus Blum was NOT run (web-search budget exhausted).",
+  "URH / HackRF / CC2500 / Ubertooth: GitHub code search 'blum' in jopohl/urh returned nothing. WebSearch '\"Blum\" \"servo-drive\" 2.4 GHz reverse engineering protocol sniff nRF24 OR CC2500 OR HackRF OR SDR' found only bluhm-de plus generic nRF24/CC2500/XN297 sniffing articles; there are no Blum captures with CC2500, Ubertooth or URH.",
+  "GitHub repo search 'blum servodrive', 'servodrive', 'blum nrf24', 'aventos', 'blum cabinet', 'blum drawer' and 'blum kitchen' found no other Blum radio project. Only Port-Net/BlumServoDrive (via 'blum servo') and the owner's own repo sven-borden/smart-servo-drive-blum-aventos appeared.",
+  "GitHub issue search 'blum servo-drive', 'blum servo drive', 'blum aventos', 'servo-drive aventos' and 'blum 23P5020' found nothing relevant. Code search for the constants '534D554C42' and 'BAABCE' found no other users of the protocol constants.",
+  "PlatformIO registry API search 'blum' and 'servodrive' found no Blum library published.",
+  "openHAB community search.json for 'blum servo', 'aventos', 'servo-drive' and 'blum aventos' found no relevant topics. ioBroker forum API for 'blum servo', 'aventos' and 'servo-drive' returned 0 matches. Homey community for 'blum', 'aventos' and 'servo-drive' found no Blum furniture topics (only 'Blumen' hits). simon42 community found 0 topics.",
+  "FHEM: WebSearch 'Blum Servo-Drive FHEM OR ioBroker OR openHAB' and 'forum.fhem.de Blum Servo-Drive OR Aventos' found nothing; the FHEM forum was not queried directly.",
+  "Loxone: WebSearch 'Blum Servo-Drive Loxone', 'Loxone Forum Blum Servo Drive Klappe Funkschalter Relais' and 'loxforum.com Blum Servo-Drive OR Aventos Klappe' found nothing Loxone-specific.",
+  "Zigbee / HomeKit / Homey / Fibaro / Matter / Alexa: WebSearch 'Blum servo drive Zigbee OR HomeKit OR Homey OR Fibaro integration', 'YouTube Blum Servo-Drive Aventos smart home Alexa automatisieren' and 'Blum interzum 2025 smart furniture SERVO-DRIVE app Matter voice control launch' found only daumemo and the SERVO-DRIVE smart concept. The Fibaro forum search returned 403.",
+  "Sonoff / Tasmota / SwitchBot / Fingerbot / Homematic: WebSearch 'Blum servo drive Sonoff OR Tasmota OR SwitchBot OR Fingerbot OR Homematic' found only the C4 fingerbot idea (never built) and the 2019 HA Sonoff SV post.",
+  "MQTT / Node-RED / Zigbee2MQTT / Tuya: WebSearch '\"Blum\" \"Servo-Drive\" MQTT OR \"Node-RED\" OR \"Zigbee2MQTT\" OR \"Tuya\" Klappe' found nothing Blum-related. Port-Net also has a generic Homie-MQTT library (Port-Net/Homie) with no Blum references.",
+  "Hackaday / Hackster: WebSearch 'hackaday Blum servo drive cabinet hack' and 'hackaday.io OR hackster.io Blum servo-drive Aventos' found nothing; only IKEA trash-can installation videos on YouTube.",
+  "mikrocontroller.net / hobbyelektronik: WebSearch 'mikrocontroller.net Blum Servo-Drive Funk' and 'hobbyelektronik OR mikrocontroller.net Servo-Drive Blum Klappe automatisch schließen Timer' found only a 2014 IR-drawer thread (topic 346432) where a user says 'einen anderen Ansatz verfolgt blum mit \"servo drive\"', with no technical content.",
+  "Arduino forum: WebSearch 'forum.arduino.cc Blum servo drive nrf24' found only generic nRF24 servo threads.",
+  "Reddit: WebSearch 'site:reddit.com Blum servo drive', 'site:reddit.com blum servo-drive home assistant OR smart OR esp32 OR relay OR remote', '\"aventos\" \"servo-drive\" reddit' and '\"servo drive\" blum reddit r/homeassistant cabinet lift automate' returned no Reddit pages. reddit.com/search.json returned HTTP 403 (not circumvented), so Reddit is effectively unsearched.",
+  "diy.stackexchange: WebSearch 'diy.stackexchange Blum servo drive remote switch automation' found no StackExchange pages.",
+  "YouTube: no hack, sniff or ESP32 videos found (queries: 'YouTube Blum Servo-Drive Aventos smart home Alexa automatisieren', 'youtube Blum servo drive ESP32 OR \"home assistant\" OR \"smart home\" DIY'). A hack-specific query was NOT run (budget exhausted).",
+  "German RE write-ups: WebSearch 'Blum Funkschalter Servo-Drive Protokoll nachbauen Arduino', 'Blum Servo-Drive Funkprotokoll entschlüsselt OR dekodiert OR sniffen' and 'Blum Servo-Drive nRF24L01 Arduino ESP32 steuern Funk' found no German-language decoding, only bluhm-de (English).",
+  "FR/NL/IT: WebSearch 'Blum Servo-Drive domotique Jeedom OR \"Home Assistant\" interrupteur sans fil', 'Blum servo drive domotica tweakers OR Homey OR \"Home Assistant\" schakelaar' and 'Blum Servo-Drive domotica interruttore wireless Home Assistant forum' found no additional projects.",
+  "Blum FAQ: WebSearch 'ea.blum.com SERVO-DRIVE smart home Hausautomation Integration FAQ' and 'Blum FAQ \"SERVO-DRIVE\" \"smart home\" can it be integrated' found no official smart-home FAQ or statement.",
+  "Teardowns: WebSearch 'Blum 23P5020 hack OR teardown OR opened OR inside' found only device.report internal photos (403), no hack write-ups.",
+  "Inaccessible (HTTP 403 for this agent; not circumvented): thingiverse.com/thing:7293224, makerworld.com/en/models/2443203, stlfinder model 519054, the live c4forums thread (read via a web.archive.org copy instead), dasheimwerkerforum thread 19989 (snippets only: poster 'Fisch' asked how to remote-control an HL Servo Drive; a reply speculated whether the switch was 'mechanisch geknackt und umgebaut als repeater'; no answer seen), device.report/blum/23p5020, the fccid.io W95-21P5020 schematics page, forum.fibaro.com search and reddit.com. Shelly forum thread 27978 has 2 members-only posts that could not be read.",
+  "The shared WebSearch budget (200 per turn across agents) was exhausted near the end, so a few planned queries were not executed. After that point no search engines or archive services were used to work around the limit."
+ ],
+ "open_questions": [
+  "Which Blum generation did bluhm-de (2023) and Port-Net (Dec 2024) test? Do the frames and channels still hold for drive units sold after the September 2025 electronics update?",
+  "When the flap is opened by pressing the FRONT, does the real AVENTOS drive send 0x25/0x26 move frames to its sync partners (as synchronised movement implies)? Would a virtual sync partner therefore see every opening? Manual openings by hand likely produce no frame.",
+  "If the ESP32 is registered as a sync partner and then goes offline or is slow to ack, does the real drive delay, retry, error or refuse to move? Port-Net uses 5 retries x 500 ms.",
+  "What do the byte-12 values of 0x26 mean? Port-Net sends 0x10 for open and 0x01 for close, but its receive callback maps 0x01 to OPEN.",
+  "Which RF channels carry 'button communication' and 'programming'? bluhm-de withholds them. Port-Net only uses channel 4 (normal plus pipe-1 address '01') and channel 10 (sync discovery), and has a commented switch config address 0x544D554C42 ('BLUMT') with no channel.",
+  "Has anyone actually verified that a captured 0x20 switch frame can be replayed verbatim? bluhm-de only says the sequence 'does not seem to be validated'.",
+  "What is the meaning of device-ID byte 0x94 in sync frames? Does the drive accept arbitrary 24-bit IDs (Port-Net default 0xBAABCE; a captured constant contains 'FC 72 42')?",
+  "Could collision-avoidance (COLL) link frames report open/closed state without the risk of blocking openings? The bluhm-de 'Collision' section is empty.",
+  "Is the switch chip a discrete nRF24L01+ (bluhm-de's claim) or an nRF24LE1-class SoC? The daumemo photo shows a single QFN and a 2x3 pad header; the FCC internal photos would settle it (cross-link: FCC angle).",
+  "Do the members-only Shelly forum posts or the Thingiverse/MakerWorld comment sections contain outcomes? Both were inaccessible.",
+  "Did the C4 and HA users wire SERVO-DRIVE for AVENTOS switches or drawer switches? The C4 thread does not name the product."
+ ],
+ "questions_for_user": [
+  "Please photograph the type plate of the drive unit (e.g. 23KA001, 21FA001, 21LA001, 21SA001, 23.A00L83 or similar) and say which AVENTOS model it is (HK top / HF top / HS top / HL top).",
+  "When were the cabinet and the SERVO-DRIVE bought or installed? Before or after September 2025, when Blum's updated SERVO-DRIVE electronics shipped?",
+  "What part number is printed on your radio switch (23P5020 or 21P5020)? If you are willing to open it, what does the PCB label say (23P502L00 vs 21P502L00)? Photos of both PCB sides would help, especially the chip marking.",
+  "Does the drive unit show a button panel with <SWITCH>, <SYNC>, <COLL>, <Reset Wireless>, <Reset Motion> and LEDs?",
+  "Is this flap already synchronised or collision-linked with other drive units, and with how many? Up to 3 drive units can be synced.",
+  "How is the flap usually opened: by pressing the front, with the radio switch, or by hand? Should the 5-minute auto-close also start after front-press and manual openings?",
+  "What power is available inside the cabinet? Is there a Blum 24 V transformer or distribution cable you are willing to tap (or a mains outlet), and how far is it from the drive?",
+  "Would you buy a spare switch to hard-wire (the protocol-independent fallback)? Are you comfortable pairing an ESP32 as a 'sync partner' with the drive? That needs pressing <SYNC>, and undoing it with <Reset Wireless> also deletes your paired switch.",
+  "Do you already own an nRF24L01+ module, an SDR (e.g. HackRF) or a logic analyzer for verifying the protocol on your unit?",
+  "Which country or region are you in? This affects radio-transmission rules and parts sourcing.",
+  "If closing is interrupted by the collision detection (hand or object in the way), should the device retry, notify you, or give up?"
+ ]
+}
